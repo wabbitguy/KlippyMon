@@ -421,9 +421,9 @@ void handle_ClockDisplay() {
   char buffer[24];  // holds the formated time/day/date
   uint8_t theHour;  // either 12/24hr format
   //
-  myHour = hourFormat12(usPT.toLocal(utc, &tcr));
-  myDay = day(usPT.toLocal(utc, &tcr));
-  my24Hour = hour(usPT.toLocal(utc, &tcr));  // we need the 24 hour clock time
+  myHour = hourFormat12(timeZoneRule.toLocal(utc, &tcr));
+  myDay = day(timeZoneRule.toLocal(utc, &tcr));
+  my24Hour = hour(timeZoneRule.toLocal(utc, &tcr));  // we need the 24 hour clock time
   myMinute = minute();
   mySecond = second();
   myYear = year();
