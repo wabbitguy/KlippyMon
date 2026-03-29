@@ -45,7 +45,7 @@ Klipper Monitor using a 2.8" CYD (cheap yellow display)
 
 <p><b>// ---------------- TIME HELPERS ----------------</b></p>
 
-<p>Change the timezone as needed (it current defaults to British Columbia/Canada with PDT all the time). Additonal details can be found all over the net for these libary settings, or directly from the source:</p>
+<p>Change the timezone as needed (it currently defaults to British Columbia/Canada PDT all the time). There are a number of examples shown in the code to help. Additonal details can be found all over the net for these libary settings, or directly from the source.:</p>
 
 <p><a href="https://github.com/JChristensen/Timezone">TimeZone GitHub</a></p>
 
