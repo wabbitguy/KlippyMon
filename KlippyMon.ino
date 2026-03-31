@@ -1,5 +1,5 @@
 #include "Settings.h"
-#include "NotoSansBold15.h"
+#include "NotoSansBold15.h"// progmem for URL requests
 
 //#define FORMAT_LittleFS  // Wipe SPIFFS and all files!
 //
@@ -286,6 +286,7 @@ int8_t getWifiQuality() {
 void handlePrinterOffLine() {
   if (printerName == "") {                                          // draw the sleeping printer
     if (showSleep == false) {                                       // we only show the printer graphic ONCE
+      tft.fillRect(0, 100, 239, 198, TFT_BLACK);                    // clear the area
       drawBmp(SD, OFFLINE_IMAGE, 27, 100);                          //display sleeping printer
       String ipaddress = "KlippyMon " + WiFi.localIP().toString();  // get my IP address
       tft.setTextColor(TFT_WHITE, TFT_BLACK);                       // white text

@@ -691,3 +691,49 @@ const uint8_t  NotoSansBold15[] PROGMEM = {
 0x4E, 0x6F, 0x74, 0x6F, 0x20, 0x53, 0x61, 0x6E, 0x73, 0x20, 0x42, 0x6F, 0x6C, 0x64, 0x00, 0x0D, 
 0x4E, 0x6F, 0x74, 0x6F, 0x53, 0x61, 0x6E, 0x73, 0x2D, 0x42, 0x6F, 0x6C, 0x64, 0x01,
 };
+
+const char printer_Info[] PROGMEM = R"rawliteral(
+<style>
+  label {
+    display: inline-block;
+    width: 150px;
+        font-size: 18px;
+    text-align: right;
+  }
+  input[type="text"] {
+    font-size: 16px;
+     width: 120px;
+  }
+  input[type="submit"] {
+    font-size: 16px;
+    padding: 10px 30px;
+    display: block;
+    margin: 10px auto;
+  }
+  .checkbox-row {
+    margin: 10px 0;
+  }
+  .checkbox-row label {
+    display: inline-block;
+    width: 120px;
+    text-align: right;
+    margin-right: 8px;
+    font-size: 16px;
+  }
+  .checkbox-row input[type="checkbox"] {
+    transform: scale(1.5);
+</style>
+<form action="/updatePrinterInfo">
+  <label for="printerIP">Printer IP:</label>
+  <input type="text" id="printerIP" name="printerIP" value="%IP%"><br>
+  <label for="maxBedTemp">Max Bed Temp:</label>
+  <input type="text" id="maxBedTemp" name="maxBedTemp" value="%MBT%"><br>
+  <label for="maxNozzleTemp">Max Nozzle Temp:</label>
+  <input type="text" id="maxNozzleTemp" name="maxNozzleTemp" value="%MNT%"><br>
+    <div class="checkbox-row">
+    <label for="Show 24Hr">Show 24Hr:</label>
+    <input type="checkbox" id="show24HR" name="show24HR" value="true" %boxState%>
+  </div>
+  <input type="submit" value="Update">
+</form> 
+)rawliteral";
