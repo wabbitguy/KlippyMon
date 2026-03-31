@@ -17,27 +17,27 @@ Klipper Monitor using a 2.8" CYD (cheap yellow display)
 
 <p>After the reboot, KlippyMon will be scanning every 10 seconds for a printer that lives at it's default IP address of 192.168.1.6. Which is roughly a 254 to 1 chance of actually being where your printer is on your LAN. The default screen (assuming your printer lives elsewhere) will be:</p>
 
-![KlippyMon_Sleeping](https://github.com/user-attachments/assets/adf20147-9816-4fce-aa31-d8cafd13f8bc)
+<img width="400" height="544" alt="image" src="https://github.com/user-attachments/assets/e5b4a2c7-9545-4d2b-a1ab-1f88b6044d5f" />
 
 <p>What is required next is for you to use any web browser and to navigate to the IP shown OR KlippyMon.local if that works for you. Here you can put in the IP address of your printer (you don't need to add any :10088 or anything. That's been taken care of in the code itself.</p>
 
 ![KlippyMon_Config](https://github.com/user-attachments/assets/766d3c52-9fa5-420b-9a76-eb4a2393a139)
 
-<p>When KlippyMon starts either with it's default IP or once you enter your printers IP, you'll either be greeted with a "sleep" image or the current state of your printer (temps, etc)</p>
+<p>After the configuration is updated, assuming the printer is now powered up, you'll see the idle mode of KlippyMon.</p>
 
-![KlippyMon_Sleeping](https://github.com/user-attachments/assets/97bc97c3-f0ab-410e-adb5-e11c5d80468a)
+<img width="400" height="549" alt="image" src="https://github.com/user-attachments/assets/31b7b215-618e-4fea-b6f7-5d39647a4293" />
 
-<p>OR</p>
+<p>When you start a print job, KlippyMon's temperature numbers will turn red (tells you it's heating or maintaining the heat) and the PROGRESS will indicate PREP. PREP means it's not actually printing, it's preparing to start to print. I.e. heating the bed, doing any bed levelling, and finally heating the nozzle.</p>
 
-![KlippyMon_Printer_Idle](https://github.com/user-attachments/assets/379de026-7f83-4aa5-84e0-d24250875c09)
+<img width="400" height="540" alt="image" src="https://github.com/user-attachments/assets/dec20cac-277e-4a9a-90d2-bbda6919210b" />
 
-<p>When you start a print job, KlippyMon's temperature numbers will turn red (tells you it's heating or maintaining the heat) and the PROGRESS will indicate PREP. PREP means it's not actually printing, it's preparing to start to print. A background timer will also be set in KlippyMon so at the end of the print you'll get the total time the print took. That includes bed warm up, any levelling that is done and the nozzle heating time. Once the printing has actually started you'll get an ETA that's updated every 10 seconds throughout the entire printing process.</p>
+<p>A background timer will also be set in KlippyMon so at the end of the print you'll get the total time the print took. That includes bed warm up, any levelling that is done and the nozzle heating time. Once the printing has actually started you'll get an ETA that's updated every 10 seconds throughout the entire printing process.</p>
 
-![KlippyMon_Printing](https://github.com/user-attachments/assets/a92186f5-833b-4040-84e4-9901ec7dcae2)
+<img width="400" height="548" alt="image" src="https://github.com/user-attachments/assets/b871869e-aa5f-40ab-bc62-97958357a9f8" />
 
 <p>At the end of the print, you'll get the total elapsed time (accurate to within 20 seconds).</p>
 
-![KlippyMon_Print_Done](https://github.com/user-attachments/assets/064ae2a8-7e6c-4014-bfce-0b91eaf4450e)
+<img width="400" height="563" alt="image" src="https://github.com/user-attachments/assets/937d32ac-ac9c-4aac-9398-eedf0a1e0202" />
 
 <br><br>
 <h3>Modify The Code</h3>
