@@ -102,7 +102,7 @@ KlippyMon has a built-in web interface accessible from any browser on your local
 | Printer Port | Moonraker port — usually 7125, QIDI uses 10088 |
 | 24 Hour Clock | Toggle between 12 and 24 hour time display |
 
-If you want to use nfty for notifications, read the section in this document about it's setup.
+If you want to use nfty for notifications, read the section in this document about the options for setup.
 
 Click **Update & Save**. KlippyMon will find your printer and start displaying data within a few seconds.
 
