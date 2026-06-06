@@ -1,9 +1,10 @@
-# KlippyMon v3.0
+# KlippyMon v3.4
 ### A Klipper 3D Printer Monitor for the ESP32 CYD (Cheap Yellow Display)
 
 **Wabbit Wanch Design © 2026**
 
-![KlippyMon Main Screen](images/main_screen.png)
+<img width="480" height="710" alt="Success" src="https://github.com/user-attachments/assets/24e3e37d-d5f5-41eb-8d7b-8b91401bdf6d" />
+
 
 KlippyMon turns a budget ESP32 CYD into a dedicated 3D printer monitor for Klipper-based printers. It connects to your printer's Moonraker API over WiFi and displays real-time print status, temperatures, progress, ETA, and thumbnail previews — all on a compact 2.8" colour TFT.
 
@@ -31,7 +32,7 @@ KlippyMon turns a budget ESP32 CYD into a dedicated 3D printer monitor for Klipp
 - USB-C cable for flashing
 - Your Klipper printer running Moonraker
 
-![CYD Hardware](images/cyd_hardware.png)
+<img width="412" height="242" alt="CYD" src="https://github.com/user-attachments/assets/ad9de71c-f7fa-4994-bd0c-ac1980c0c63c" />
 
 ---
 
@@ -48,6 +49,12 @@ Install the following libraries via Arduino Library Manager:
 - LittleFS (included with ESP32 Arduino core)
 
 ---
+## KlippyMon Running
+
+<img width="240" height="315" alt="Progress" src="https://github.com/user-attachments/assets/e25fa739-13da-4165-ade8-73d7765d6bc9" />
+
+---
+
 
 ## Quick Start
 
@@ -79,7 +86,7 @@ KlippyMon stores its fonts and images in the LittleFS filesystem on the CYD. Thi
 
 On first boot KlippyMon will create a WiFi hotspot called **KlippyMon**. Connect to it from your phone or computer and you'll be redirected to the WiFi setup page. Enter your network credentials and KlippyMon will reboot and connect.
 
-![WiFi Setup](images/wifi_setup.png)
+<img width="230" height="346" alt="WIFI_Setup" src="https://github.com/user-attachments/assets/d38fe8db-eb6e-4586-83c2-09a030c8fbe2" />
 
 ### 4. Configure Your Printer
 
@@ -91,7 +98,7 @@ http://klippymon.local
 
 KlippyMon has a built-in web interface accessible from any browser on your local network at `http://klippymon.local` or the IP address shown on the display.
 
-![Web UI Overview](images/webui_overview.png)
+<img width="320" height="644" alt="Configure" src="https://github.com/user-attachments/assets/65cf71e1-84a1-4475-a073-114dab7fda2d" />
 
 > **Tip:** If `klippymon.local` doesn't work on your network, use the IP address shown on the KlippyMon display when it is waiting for your printer to come online. It will be shown at the bottom of the screen, for example: `KlippyMon 192.168.1.45`
 
@@ -100,6 +107,8 @@ KlippyMon has a built-in web interface accessible from any browser on your local
 | Printer IP | The IP address of your Klipper printer |
 | Printer Port | Moonraker port — usually 7125, QIDI uses 10088 |
 | 24 Hour Clock | Toggle between 12 and 24 hour time display |
+
+If you want to use nfty for notifications, read the section in this document about the options for setup.
 
 Click **Update & Save**. KlippyMon will find your printer and start displaying data within a few seconds.
 
@@ -157,13 +166,11 @@ If your printer's chamber sensor uses a different name in `printer.cfg`, it will
 
 The chamber temperature displays in **white** when the chamber is at ambient temperature and **red** when the chamber heater is actively heating.
 
-![Chamber Temperature Display](images/chamber_temp.png)
-
 ---
 
 ## Printer Compatibility
 
-KlippyMon works with any Klipper printer running Moonraker. Tested with:
+KlippyMon works with any Klipper printer running Moonraker. Thus should work with:
 
 - **QIDI Tech** (Q1 Pro, X-Max 3, X-Plus 3) — port 10088
 - **Creality K1 / K1C / K1 Max** — port 7125
@@ -185,19 +192,6 @@ KlippyMon works with any Klipper printer running Moonraker. Tested with:
 **The web UI is not loading with a browser at `http://klippymon.local`**
 - Use the IP address shown on the KlippyMon display instead
 - mDNS (`.local` addresses) may not work on all networks, particularly on some Android devices
-
----
-
-## License
-
-MIT License — free to use, modify and distribute. Attribution appreciated.
-
----
-
-## Credits
-
-KlippyMon is developed by **Wabbit Wanch Design**.  
-ntfy app is developed by [Philipp Heckel](https://github.com/binwiederhier/ntfy).
 
 ---
 
@@ -328,8 +322,6 @@ In the KlippyMon web UI:
 - Set **Topic** to your topic name
 - Click **Update & Save**
 
-![ntfy Self-Hosted Setup](images/ntfy_selfhosted.png)
-
 #### ntfy Troubleshooting
 
 **Notifications are delayed or not arriving**
@@ -340,6 +332,18 @@ In the KlippyMon web UI:
 
 **Notifications work but are slow**
 - If using the ntfy web app (PWA) instead of the native app, notifications only arrive when the page is open. Install the native app from the App Store or Google Play.
+
+---
+## License
+
+MIT License — free to use, modify and distribute. Attribution appreciated.
+
+---
+
+## Credits
+
+KlippyMon is developed by **Wabbit Wanch Design**.  
+ntfy app is developed by [Philipp Heckel](https://github.com/binwiederhier/ntfy).
 
 ---
 
