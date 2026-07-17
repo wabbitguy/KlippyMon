@@ -1,4 +1,4 @@
-# KlippyMon v3.4
+# KlippyMon v3.5
 ### A Klipper 3D Printer Monitor for the ESP32 CYD (Cheap Yellow Display)
 
 **Wabbit Wanch Design © 2026**
