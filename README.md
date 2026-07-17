@@ -21,6 +21,7 @@ KlippyMon turns a budget ESP32 CYD into a dedicated 3D printer monitor for Klipp
 - Seven language support (English, French, German, Spanish, Dutch, Portuguese, Turkish)
 - Dark-themed web UI for configuration — no recompiling needed
 - Auto-detection of printer temperature limits
+- No timezone setup required. Autoset up based on your IP.
 - WiFi quality indicator
 - NTP clock with 12/24 hour mode
 
