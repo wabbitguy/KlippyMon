@@ -10,7 +10,7 @@
 
 //#define FORMAT_LittleFS  // Wipe LittleFS and all files! Disable after use.
 
-#define VERSION "v3.5"
+#define VERSION "v3.6"
 #define hostNameCYD "KlippyMon"
 #define CONFIG "/config.txt"
 
@@ -531,7 +531,9 @@ bool fetchPrinterData() {
   if (totalDuration > 0) savedTotalDuration = totalDuration;
   progress = doc["result"]["status"]["display_status"]["progress"] | 0.0;
 
-  if (thePrintFile == "" && printState != "standby") {
+  if (thePrintFile == "" && printState != "standby"
+      && printState != "canceled" && printState != "cancelled"
+      && printState != "error") {
     String rawPath = doc["result"]["status"]["print_stats"]["filename"] | "";
     if (rawPath != "") {
       thePrintFileRaw = rawPath;
@@ -539,7 +541,8 @@ bool fetchPrinterData() {
     }
   }
 
-  if (hasChamber) {
+if (hasChamber && chamberSensorName.length() > 0 &&
+      doc["result"]["status"].containsKey(chamberSensorName.c_str())) {
     chamberTemp = doc["result"]["status"][chamberSensorName.c_str()]["temperature"] | 0.0;
     chamberTarget = doc["result"]["status"][chamberSensorName.c_str()]["target"] | 0.0;
   }
@@ -718,6 +721,13 @@ void handleETA() {
 PrinterState determinePrinterState() {
   lastState = currentState;
 
+  // Cancelled or error: always go straight to idle, never STATE_COMPLETE
+  // Note: Creality K1/K1 Max reports "cancelled" (British spelling),
+  // while standard Klipper/Moonraker reports "canceled".
+  if (printState == "canceled" || printState == "cancelled" || printState == "error") {
+    return STATE_IDLE;
+  }
+
   if (printState == "standby") {
     if (lastState == STATE_PRINTING || lastState == STATE_PREP) {
       return STATE_COMPLETE;
@@ -755,10 +765,19 @@ void updatePrinterDisplay(PrinterState state) {
       tft.fillCircle(120, gaugeY, 20, TFT_BLACK);
       tft.setTextColor(TFT_WHITE, TFT_BLACK);
       tft.drawString(strIdle, 120, dataY, 2);
+
+      // Coming from PRINTING/PREP without a STATE_COMPLETE means it was
+      // cancelled or errored out — clear the tracked filename so the next
+      // print picks up its own name, and force the idle graphic to redraw.
+      if (lastState == STATE_PRINTING || lastState == STATE_PREP) {
+        thePrintFile = "";
+        thePrintFileRaw = "";
+        showIdle = false;
+      }
+
       if (!showIdle && !justFinished) {
         tft.fillRect(0, statusZoneY, 239, statusZoneH, TFT_BLACK);
         drawBmp(LittleFS, IDLE_IMAGE, graphicX + 7, graphicY + 7);
-        // ──  (fake data for layout test goes here) ──
         showIdle = true;
       }
       activeETA = false;
@@ -1193,8 +1212,6 @@ int pngDraw(PNGDRAW *pDraw) {
 }
 
 bool fetchAndDrawThumbnail() {
-
-  // Strip extension for thumbnail lookup
   String thumbFile = thePrintFileRaw;
   int slashIdx = thumbFile.lastIndexOf('/');
   if (slashIdx >= 0) thumbFile = thumbFile.substring(slashIdx + 1);
@@ -1210,13 +1227,23 @@ bool fetchAndDrawThumbnail() {
   encodedFile.replace("&", "%26");
   encodedFile.replace("+", "%2B");
 
-  String thumbURL = "http://" + printerIP + ":" + printerPort + "/server/files/gcodes/.thumbs/" + encodedFile + "-110x110.png";
-  // Serial.println("Raw: " + thePrintFileRaw);
-  // Serial.println("Thumb file: " + thumbFile);
-  // Serial.println("Full URL: " + thumbURL);
+  // Standard Moonraker path (works for the vast majority of printers)
+  String thumbURL = "http://" + printerIP + ":" + printerPort +
+                     "/server/files/gcodes/.thumbs/" + encodedFile + "-110x110.png";
 
   httpThumb.begin(thumbURL);
   int httpCode = httpThumb.GET();
+
+  // Fallback: Creality K1/K1 Max serve thumbnails via Nginx on port 80,
+  // under a mistyped "/downloads/humbnail/" path instead of Moonraker's API.
+  if (httpCode != 200) {
+    httpThumb.end();
+    delay(150);  // let the socket close cleanly before firing the second request
+    thumbURL = "http://" + printerIP + "/downloads/humbnail/" + encodedFile + ".png";
+    Serial.println("Standard thumbnail path failed, trying Creality fallback: " + thumbURL);
+    httpThumb.begin(thumbURL);
+    httpCode = httpThumb.GET();
+  }
 
   if (httpCode != 200) {
     Serial.println("Thumb fetch failed: " + String(httpCode));
@@ -1225,7 +1252,11 @@ bool fetchAndDrawThumbnail() {
   }
 
   thumbBufferSize = httpThumb.getSize();
-  //Serial.println("Thumb size: " + String(thumbBufferSize) + " bytes");
+  if (thumbBufferSize <= 0) {
+    Serial.println("Thumb: invalid content length, aborting");
+    httpThumb.end();
+    return false;
+  }
 
   thumbBuffer = (uint8_t *)malloc(thumbBufferSize);
   if (!thumbBuffer) {
@@ -1234,7 +1265,6 @@ bool fetchAndDrawThumbnail() {
     return false;
   }
 
-  // Read the PNG data into the buffer
   WiFiClient *stream = httpThumb.getStreamPtr();
   int bytesRead = 0;
   while (httpThumb.connected() && bytesRead < thumbBufferSize) {
@@ -1246,7 +1276,6 @@ bool fetchAndDrawThumbnail() {
 
   Serial.println("Bytes read: " + String(bytesRead));
 
-  // Decode and draw
   int rc = png.openRAM(thumbBuffer, bytesRead, pngDraw);
   if (rc == PNG_SUCCESS) {
     tft.startWrite();
