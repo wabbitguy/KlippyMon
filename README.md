@@ -1,4 +1,4 @@
-# KlippyMon v3.5
+# KlippyMon v3.6
 ### A Klipper 3D Printer Monitor for the ESP32 CYD (Cheap Yellow Display)
 
 **Wabbit Wanch Design © 2026**
@@ -24,6 +24,7 @@ KlippyMon turns a budget ESP32 CYD into a dedicated 3D printer monitor for Klipp
 - No timezone setup required. Autoset up based on your IP.
 - WiFi quality indicator
 - NTP clock with 12/24 hour mode
+- Added corrections for Creality Klipper differences
 
 ---
 
@@ -328,4 +329,4 @@ ntfy app is developed by [Philipp Heckel](https://github.com/binwiederhier/ntfy)
 
 ---
 
-*KlippyMon v3.5 © 2026 Wabbit Wanch Design*
+*KlippyMon v3.6 © 2026 Wabbit Wanch Design*
