@@ -1,4 +1,4 @@
-# KlippyMon v3.4
+# KlippyMon v3.5
 ### A Klipper 3D Printer Monitor for the ESP32 CYD (Cheap Yellow Display)
 
 **Wabbit Wanch Design © 2026**
@@ -21,6 +21,7 @@ KlippyMon turns a budget ESP32 CYD into a dedicated 3D printer monitor for Klipp
 - Seven language support (English, French, German, Spanish, Dutch, Portuguese, Turkish)
 - Dark-themed web UI for configuration — no recompiling needed
 - Auto-detection of printer temperature limits
+- No timezone setup required. Autoset up based on your IP.
 - WiFi quality indicator
 - NTP clock with 12/24 hour mode
 
@@ -43,8 +44,6 @@ Install the following libraries via Arduino Library Manager:
 - TFT_eSPI
 - ArduinoJson
 - WiFiManager
-- TimeLib (Time by Michael Margolis)
-- Timezone by Jack Christensen
 - PNGdec
 - LittleFS (included with ESP32 Arduino core)
 
@@ -63,7 +62,7 @@ Install the following libraries via Arduino Library Manager:
 1. Open the project in Arduino IDE 2.3.9
 2. Select your board: **ESP32 Dev Module** NO OTA (2MB APP/2MB SPIFFS)
 3. Set the language in `Language.h` (default is English — see [Language Settings](#language-settings))
-4. Set your timezone in `Settings.h` (see [Timezone Settings](#timezone-settings))
+4. TimeZone settings are now automatic based on your IP, no need to set anything
 5. Compile and upload to the CYD
 
 ### 2. Upload the Data Folder (Fonts and Images)
@@ -131,24 +130,6 @@ Open `Language.h` and uncomment the language you want. Only one language can be 
 ```
 
 Recompile and flash after changing the language.
-
----
-
-## Timezone Settings
-
-Open `Settings.h` and find the timezone section. Set your timezone rule to match your location. Examples are provided in the file for common timezones.
-
-```cpp
-// Example — US Pacific Time
-TimeChangeRule myDST = {"PDT", Second, Sun, Mar, 2, -420};
-TimeChangeRule mySTD = {"PST", First, Sun, Nov, 2, -480};
-Timezone timeZoneRule(myDST, mySTD);
-```
-
-A full list of timezone rules can be found at:
-[https://github.com/JChristensen/Timezone](https://github.com/JChristensen/Timezone)
-
-Recompile and upload after changing the timezone.
 
 ---
 
@@ -347,4 +328,4 @@ ntfy app is developed by [Philipp Heckel](https://github.com/binwiederhier/ntfy)
 
 ---
 
-*KlippyMon v3.0 © 2026 Wabbit Wanch Design*
+*KlippyMon v3.5 © 2026 Wabbit Wanch Design*
