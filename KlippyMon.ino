@@ -1,12 +1,16 @@
+/* ESP32 Dev Module 
+   NO OTA 2MB APP/2MB SPIFFS
+*/
+
 #include "Settings.h"     // some basic settings (TimeZone)
 #include "Language.h"     // language you want to use
 #include "Translation.h"  // language translations
 #include "Ntfy.h"         // for push nofitications if you want them
-
+#include "NTP_Time.h"     // time server change
 
 //#define FORMAT_LittleFS  // Wipe LittleFS and all files! Disable after use.
 
-#define VERSION "v3.4"
+#define VERSION "v3.5"
 #define hostNameCYD "KlippyMon"
 #define CONFIG "/config.txt"
 
@@ -50,7 +54,7 @@ String printerName = "";
 String printState;
 float progress, nozzleTemp, nozzleTarget, bedTemp, bedTarget, printDuration, totalDuration;
 uint16_t progressPercent;
-uint16_t lastNozzleTemp, lastBedTemp, lastProgress;
+uint16_t lastNozzleTemp = 9999, lastBedTemp = 9999, lastProgress = 9999;
 
 bool greenON = true;
 bool greenOFF = false;
@@ -91,13 +95,6 @@ bool colonBlink = false;
 bool activeETA = false;
 uint16_t etaHH, etaMM;
 
-// ---------------- NTP ----------------
-#define NTP_SERVER "pool.ntp.org"
-static const char ntpServerName[] = "pool.ntp.org";
-uint16_t localPort;
-uint8_t ntpUpdateFrequency = 123;
-WiFiUDP Udp;
-
 // Web server
 WebServer server(80);
 
@@ -120,8 +117,6 @@ PrinterState determinePrinterState();
 void updatePrinterDisplay(PrinterState state);
 void handlePrinterStatus();
 void configModeCallback(WiFiManager *myWiFiManager);
-time_t getNtpTime();
-void sendNTPpacket(IPAddress &address);
 String SendHTML();
 void handlePrinterUpdate();
 String getPrinterSetup();
@@ -194,12 +189,6 @@ void setup() {
     delay(500);
   }
 
-  uint8_t macAddr[6];
-  WiFi.macAddress(macAddr);
-  Udp.begin(localPort);
-  setSyncProvider(getNtpTime);
-  setSyncInterval(ntpUpdateFrequency * 60);
-
   WiFi.hostname(hostNameCYD);
   MDNS.begin(hostNameCYD);
 
@@ -212,7 +201,11 @@ void setup() {
   tft.fillScreen(TFT_BLACK);
   drawVersionString();
 
+  udp.begin(localPort);
+  syncTime();
+
   readSettings();
+  if (checkTimezoneOffsets()) writeSettings();
   buildPrinterURLs();
 }
 
@@ -221,22 +214,22 @@ void setup() {
 // ============================================================
 void loop() {
   static time_t prevDisplay = 0;
-  timeStatus_t ts = timeStatus();
+  static uint8_t lastSyncHour = 99;
+
   utc = now();
 
-  switch (ts) {
-    case timeNeedsSync:
-    case timeSet:
-      if (now() != prevDisplay) {
-        prevDisplay = now();
-        handle_ClockDisplay();
-        tmElements_t tm;
-        breakTime(now(), tm);
-      }
-      break;
-    case timeNotSet:
-      now();
-      delay(3000);
+  if (utc != prevDisplay) {
+    prevDisplay = utc;
+    handle_ClockDisplay();
+  }
+
+  uint8_t currentHour = hour(toLocal(utc));
+  if (currentHour != lastSyncHour) {
+    syncTime();
+    if (currentHour == 2) {
+      if (checkTimezoneOffsets()) writeSettings();
+    }
+    lastSyncHour = currentHour;
   }
 
   if (enablePoll == true) {
@@ -309,7 +302,7 @@ void handle_ClockDisplay() {
   uint8_t theHour;
 
   time_t utc = now();
-  time_t localTime = timeZoneRule.toLocal(utc, &tcr);
+  time_t localTime = toLocal(utc);
 
   myHour = hourFormat12(localTime);
   my24Hour = hour(localTime);
@@ -666,7 +659,7 @@ void handleETA() {
 
     // Build the end time string
     time_t utc = now();
-    time_t localTime = timeZoneRule.toLocal(utc, &tcr);
+    time_t localTime = toLocal(utc);
     time_t addSeconds = ((time_t)etaHH * 3600) + ((time_t)etaMM * 60);
     time_t futureTime = localTime + addSeconds;
     uint8_t theHour = (show24HR) ? hour(futureTime) : hourFormat12(futureTime);
@@ -884,47 +877,8 @@ void configModeCallback(WiFiManager *myWiFiManager) {
 }
 
 // ============================================================
-//  NTP
+//  nfty setup
 // ============================================================
-const int NTP_PACKET_SIZE = 48;
-byte packetBuffer[NTP_PACKET_SIZE];
-
-time_t getNtpTime() {
-  IPAddress timeServerIP;
-  while (Udp.parsePacket() > 0)
-    ;
-  WiFi.hostByName(ntpServerName, timeServerIP);
-  sendNTPpacket(timeServerIP);
-  uint32_t beginWait = millis();
-  while ((millis() - beginWait) < 1500) {
-    int size = Udp.parsePacket();
-    if (size >= NTP_PACKET_SIZE) {
-      Udp.read(packetBuffer, NTP_PACKET_SIZE);
-      unsigned long secsSince1900;
-      secsSince1900 = (unsigned long)packetBuffer[40] << 24;
-      secsSince1900 |= (unsigned long)packetBuffer[41] << 16;
-      secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
-      secsSince1900 |= (unsigned long)packetBuffer[43];
-      return secsSince1900 - 2208988800UL;
-    }
-  }
-  return 0;
-}
-
-void sendNTPpacket(IPAddress &address) {
-  memset(packetBuffer, 0, NTP_PACKET_SIZE);
-  packetBuffer[0] = 0b11100011;
-  packetBuffer[1] = 0;
-  packetBuffer[2] = 6;
-  packetBuffer[3] = 0xEC;
-  packetBuffer[12] = 49;
-  packetBuffer[13] = 0x4E;
-  packetBuffer[14] = 49;
-  packetBuffer[15] = 52;
-  Udp.beginPacket(address, 123);
-  Udp.write(packetBuffer, NTP_PACKET_SIZE);
-  Udp.endPacket();
-}
 
 String ntfyServerDisplay() {
   String s = ntfyServer;
@@ -943,42 +897,42 @@ String SendHTML() {
   String page = String(HTML_TEMPLATE);
 
   // Header
-  page.replace("%VERSION%",           String(VERSION));
-  page.replace("%WIFI_QUALITY%",      String(getWifiQuality()));
+  page.replace("%VERSION%", String(VERSION));
+  page.replace("%WIFI_QUALITY%", String(getWifiQuality()));
 
   // WiFi reset modal
-  page.replace("%WIFI_RESET_TITLE%",  String(wcWifiResetTitle));
-  page.replace("%WIFI_RESET_BODY%",   String(wcWifiResetBody));
-  page.replace("%WIFI_RESET_YES%",    String(wcWifiResetYes));
+  page.replace("%WIFI_RESET_TITLE%", String(wcWifiResetTitle));
+  page.replace("%WIFI_RESET_BODY%", String(wcWifiResetBody));
+  page.replace("%WIFI_RESET_YES%", String(wcWifiResetYes));
   page.replace("%WIFI_RESET_CANCEL%", String(wcWifiResetCancel));
-  page.replace("%WIFI_RESET_BTN%",    String(wcWifiResetBtn));
+  page.replace("%WIFI_RESET_BTN%", String(wcWifiResetBtn));
 
   // Section headings
-  page.replace("%SEC_PRINTER%",       String(wcSecPrinter));
-  page.replace("%SEC_NTFY%",          String(wcSecNtfy));
-  page.replace("%SEC_WIFI%",          String(wcSecWifi));
+  page.replace("%SEC_PRINTER%", String(wcSecPrinter));
+  page.replace("%SEC_NTFY%", String(wcSecNtfy));
+  page.replace("%SEC_WIFI%", String(wcSecWifi));
 
   // Printer setup block
-  page.replace("%PRINTER_SETUP%",     getPrinterSetup());
+  page.replace("%PRINTER_SETUP%", getPrinterSetup());
 
   // Ntfy labels
-  page.replace("%NTFY_ENABLED%",      String(wcNtfyEnabled));
-  page.replace("%NTFY_SERVER%",       String(wcNtfyServer));
-  page.replace("%NTFY_PORT%",         String(wcNtfyPort));
-  page.replace("%NTFY_TOPIC%",        String(wcNtfyTopic));
-  page.replace("%NTFY_TOKEN%",        String(wcNtfyToken));
-  page.replace("%NTFY_STALL_MIN%",    String(wcNtfyStallMin));
+  page.replace("%NTFY_ENABLED%", String(wcNtfyEnabled));
+  page.replace("%NTFY_SERVER%", String(wcNtfyServer));
+  page.replace("%NTFY_PORT%", String(wcNtfyPort));
+  page.replace("%NTFY_TOPIC%", String(wcNtfyTopic));
+  page.replace("%NTFY_TOKEN%", String(wcNtfyToken));
+  page.replace("%NTFY_STALL_MIN%", String(wcNtfyStallMin));
 
   // Ntfy values
   page.replace("%NTFY_ENABLED_CHECKED%", ntfyEnabled ? " checked" : "");
-  page.replace("%NTFY_SERVER_VAL%",   ntfyServerDisplay());
-  page.replace("%NTFY_PORT_VAL%",     ntfyPort);
-  page.replace("%NTFY_TOPIC_VAL%",    ntfyTopic);
-  page.replace("%NTFY_TOKEN_VAL%",    ntfyToken);
+  page.replace("%NTFY_SERVER_VAL%", ntfyServerDisplay());
+  page.replace("%NTFY_PORT_VAL%", ntfyPort);
+  page.replace("%NTFY_TOPIC_VAL%", ntfyTopic);
+  page.replace("%NTFY_TOKEN_VAL%", ntfyToken);
   page.replace("%NTFY_STALL_MIN_VAL%", String(ntfyStallMin));
 
   // Save button
-  page.replace("%SAVE_BTN%",          String(wcSaveBtn));
+  page.replace("%SAVE_BTN%", String(wcSaveBtn));
 
   return page;
 }
@@ -1058,6 +1012,7 @@ void writeSettings() {
   f.println("ntfyTopic=" + ntfyTopic);
   f.println("ntfyToken=" + ntfyToken);
   f.println("ntfyStallMin=" + String(ntfyStallMin));
+  f.println("tzOffset=" + String(tzOffset));
   f.close();
 }
 
@@ -1097,6 +1052,7 @@ void readSettings() {
       ntfyToken.trim();
     }
     if (line.indexOf("ntfyStallMin=") >= 0) ntfyStallMin = line.substring(13).toInt();
+    if (line.indexOf("tzOffset=") >= 0) tzOffset = line.substring(9).toInt();
   }
   fr.close();
 }

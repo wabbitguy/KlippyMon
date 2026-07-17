@@ -1,3 +1,7 @@
+/* ESP32 Dev Module 
+   NO OTA 2MB APP/2MB SPIFFS
+*/
+
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
@@ -6,63 +10,15 @@
 #include <WiFiManager.h>
 #include <time.h>
 #include <SPI.h>
-#include <Timezone.h>
 #include <TFT_eSPI.h>
 #include <FS.h>
 #include "LittleFS.h"
 #include <WebServer.h>
 #include <PNGdec.h>
 
-// ---------------- TIME ZONES ----------------
-// TimeZone Settings: https://github.com/JChristensen/Timezone
-// Uncomment the one you need, comment out the rest
-
-//Australia Eastern Time Zone (Sydney, Melbourne)
-TimeChangeRule aEDT = { "AEDT", First, Sun, Oct, 2, 660 };
-TimeChangeRule aEST = { "AEST", First, Sun, Apr, 3, 600 };
-//Timezone timeZoneRule(aEDT, aEST);
-
-//Central European Time (Frankfurt, Paris)
-TimeChangeRule CEST = { "CEST", Last, Sun, Mar, 2, 120 };
-TimeChangeRule CET = { "CET ", Last, Sun, Oct, 3, 60 };
-//Timezone timeZoneRule(CEST, CET);
-
-//United Kingdom (London, Belfast)
-TimeChangeRule BST = { "BST", Last, Sun, Mar, 1, 60 };
-TimeChangeRule GMT = { "GMT", Last, Sun, Oct, 2, 0 };
-//Timezone timeZoneRule(BST, GMT);
-
-//US Eastern Time Zone (New York, Detroit)
-TimeChangeRule usEDT = { "EDT", Second, Sun, Mar, 2, -240 };
-TimeChangeRule usEST = { "EST", First, Sun, Nov, 2, -300 };
-//Timezone timeZoneRule(usEDT, usEST);
-
-//US Central Time Zone (Chicago, Houston)
-TimeChangeRule usCDT = { "CDT", Second, dowSunday, Mar, 2, -300 };
-TimeChangeRule usCST = { "CST", First, dowSunday, Nov, 2, -360 };
-//Timezone timeZoneRule(usCDT, usCST);
-
-//US Mountain Time Zone (Denver, Salt Lake City)
-TimeChangeRule usMDT = { "MDT", Second, dowSunday, Mar, 2, -360 };
-TimeChangeRule usMST = { "MST", First, dowSunday, Nov, 2, -420 };
-//Timezone timeZoneRule(usMDT, usMST);
-
-//Arizona - Mountain Time, no DST
-//Timezone timeZoneRule(usMST, usMST);
-
-//US Pacific Time Zone (Las Vegas, Los Angeles)
-TimeChangeRule usPDT = { "PDT", Second, dowSunday, Mar, 2, -420 };
-TimeChangeRule usPST = { "PST", First, dowSunday, Nov, 2, -480 };
-//Timezone timeZoneRule(usPDT, usPST);
-
-// BC Canada Pacific Time (ACTIVE)
-TimeChangeRule bcPDT = { "PDT", Second, dowSunday, Mar, 2, -420 };
-Timezone timeZoneRule(bcPDT, bcPDT);
-
-// Pointer to the time change rule, used to get TZ abbreviation
-TimeChangeRule *tcr;
-time_t utc;
-bool show24HR = false;
+// Timezone offset in seconds east of UTC for the primary location.
+// -25200 = UTC-7 (PDT).  Updated automatically at 2am and on web save.
+int32_t tzOffset = -25200;
 
 // IP information of your printer on the LAN
 String printerIP = "192.168.1.6";  // default IP, set yours via the web page
@@ -82,6 +38,8 @@ String printerINFO = "/printer/info";
 String printerURLQ = "";
 String printerURLInfo = "";
 String thePrintFile = "";  // filename of the currently printing file
+
+bool show24HR = false;// show 24hr clock
 
 // ---------------- GRAPHICS (in LittleFS /data folder) ----------------
 #define OFFLINE_IMAGE "/Asleep.bmp"     // 24-bit BMP, 186 x 186
