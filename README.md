@@ -1,4 +1,4 @@
-# KlippyMon v3.6
+# KlippyMon v3.7
 ### A Klipper 3D Printer Monitor for the ESP32 CYD (Cheap Yellow Display)
 
 **Wabbit Wanch Design © 2026**
@@ -25,6 +25,7 @@ KlippyMon turns a budget ESP32 CYD into a dedicated 3D printer monitor for Klipp
 - WiFi quality indicator
 - NTP clock with 12/24 hour mode
 - Added corrections for Creality Klipper differences
+- Changed idle timeout detection to check both progress and movement
 
 ---
 
@@ -32,7 +33,7 @@ KlippyMon turns a budget ESP32 CYD into a dedicated 3D printer monitor for Klipp
 
 - **ESP32 CYD** (Cheap Yellow Display) — ESP32-2432S028R or compatible
 - USB-C cable for flashing
-- Your Klipper printer running Moonraker
+- Your Klipper printer
 
 <img width="412" height="242" alt="CYD" src="https://github.com/user-attachments/assets/ad9de71c-f7fa-4994-bd0c-ac1980c0c63c" />
 
