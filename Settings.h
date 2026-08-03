@@ -29,11 +29,11 @@ bool    ntfyEnabled  = false;
 String  ntfyServer   = "http://192.168.1.82:2586";// local hosted or https://ntfy.sh
 String  ntfyTopic    = "klippymon";
 String  ntfyToken    = "";
-uint8_t ntfyStallMin = 2;
 String  ntfyPort     = "2586";// can be any port you want if local hosting
 
 // -- URL query information from the printer
-String printQuery = "/printer/objects/query?print_stats&display_status&extruder&heater_bed";
+String printQuery = "/printer/objects/query?print_stats&display_status&extruder&heater_bed&toolhead";
+uint8_t ntfyStallMin = 5;  // was 2 — too short even with position tracking
 String printerINFO = "/printer/info";
 String printerURLQ = "";
 String printerURLInfo = "";

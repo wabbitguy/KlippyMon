@@ -10,7 +10,7 @@
 
 //#define FORMAT_LittleFS  // Wipe LittleFS and all files! Disable after use.
 
-#define VERSION "v3.6"
+#define VERSION "v3.7"
 #define hostNameCYD "KlippyMon"
 #define CONFIG "/config.txt"
 
@@ -65,6 +65,8 @@ uint8_t thePollTime = 10;
 bool forcePoll = true;  // true at boot, true after settings update
 
 float savedTotalDuration = 0.0;  // save the total duration so it doesn't get nop'd out
+
+float toolheadX = 0, toolheadY = 0, toolheadZ = 0, toolheadE = 0;  // for checking against no printer movement
 
 // ---------------- PRINTER STATE MACHINE ----------------
 typedef enum {
@@ -531,6 +533,14 @@ bool fetchPrinterData() {
   if (totalDuration > 0) savedTotalDuration = totalDuration;
   progress = doc["result"]["status"]["display_status"]["progress"] | 0.0;
 
+  JsonArray toolheadPos = doc["result"]["status"]["toolhead"]["position"];
+  if (!toolheadPos.isNull() && toolheadPos.size() >= 4) {
+    toolheadX = toolheadPos[0];
+    toolheadY = toolheadPos[1];
+    toolheadZ = toolheadPos[2];
+    toolheadE = toolheadPos[3];
+  }
+
   if (thePrintFile == "" && printState != "standby"
       && printState != "canceled" && printState != "cancelled"
       && printState != "error") {
@@ -541,8 +551,7 @@ bool fetchPrinterData() {
     }
   }
 
-if (hasChamber && chamberSensorName.length() > 0 &&
-      doc["result"]["status"].containsKey(chamberSensorName.c_str())) {
+  if (hasChamber && chamberSensorName.length() > 0 && doc["result"]["status"].containsKey(chamberSensorName.c_str())) {
     chamberTemp = doc["result"]["status"][chamberSensorName.c_str()]["temperature"] | 0.0;
     chamberTarget = doc["result"]["status"][chamberSensorName.c_str()]["target"] | 0.0;
   }
@@ -823,7 +832,7 @@ void updatePrinterDisplay(PrinterState state) {
         lastProgress = progressPercent;
         handleGauge(progressGauge, lastProgress);
       }
-      ntfyCheckStall(progress);  // was progressPercent
+     ntfyCheckStall(progress, toolheadX, toolheadY, toolheadZ, toolheadE);  // was progressPercent
 
       // ── Chamber temp ──────────────────────────────────────
       if (hasChamber) {
@@ -1228,8 +1237,7 @@ bool fetchAndDrawThumbnail() {
   encodedFile.replace("+", "%2B");
 
   // Standard Moonraker path (works for the vast majority of printers)
-  String thumbURL = "http://" + printerIP + ":" + printerPort +
-                     "/server/files/gcodes/.thumbs/" + encodedFile + "-110x110.png";
+  String thumbURL = "http://" + printerIP + ":" + printerPort + "/server/files/gcodes/.thumbs/" + encodedFile + "-110x110.png";
 
   httpThumb.begin(thumbURL);
   int httpCode = httpThumb.GET();

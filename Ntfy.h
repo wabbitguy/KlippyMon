@@ -11,6 +11,12 @@ static float    ntfyLastProgress     = 0.0f;
 static bool     ntfyStallFired       = false;
 static bool     ntfyDoneFired        = false;
 
+// Toolhead position baseline — used alongside progress% so a plateau in
+// display_status.progress (which is byte-position based when no M73 is
+// present, and not time-linear) doesn't get misread as a real stall.
+static bool  ntfyHavePos = false;
+static float ntfyLastX = 0.0f, ntfyLastY = 0.0f, ntfyLastZ = 0.0f, ntfyLastE = 0.0f;
+
 void ntfySend(const char* message, const char* title, const char* priority) {
   if (!ntfyEnabled) return;
   if (WiFi.status() != WL_CONNECTED) return;
@@ -27,17 +33,34 @@ void ntfySend(const char* message, const char* title, const char* priority) {
   http.end();
 }
 
-void ntfyCheckStall(float currentProgress) {
-  if (currentProgress > ntfyLastProgress + 0.001f) {
-    ntfyLastProgress     = currentProgress;
-    ntfyLastProgressTime = millis();
-    ntfyStallFired       = false;
+// currentProgress: display_status.progress (0.0–1.0)
+// x,y,z,e: toolhead.position — real motion, sampled every poll.
+// A stall is only declared when BOTH progress% and toolhead position have
+// been flat for ntfyStallMin minutes. Progress alone plateaus on long/complex
+// prints even while the printer is genuinely moving, which caused false
+// "no progress" alerts on long prints; toolhead position catches real motion
+// that the file-position-based progress metric misses.
+void ntfyCheckStall(float currentProgress, float x, float y, float z, float e) {
+  bool progressMoved = currentProgress > ntfyLastProgress + 0.001f;
+  bool positionMoved = !ntfyHavePos ||
+                        fabs(x - ntfyLastX) > 0.005f ||
+                        fabs(y - ntfyLastY) > 0.005f ||
+                        fabs(z - ntfyLastZ) > 0.005f ||
+                        fabs(e - ntfyLastE) > 0.005f;
+
+  if (progressMoved || positionMoved) {
+    if (progressMoved) ntfyLastProgress = currentProgress;
+    ntfyLastX = x; ntfyLastY = y; ntfyLastZ = z; ntfyLastE = e;
+    ntfyHavePos           = true;
+    ntfyLastProgressTime  = millis();
+    ntfyStallFired        = false;
     return;
   }
+
   if (!ntfyStallFired && ntfyLastProgressTime > 0) {
     uint32_t stallMs = (uint32_t)ntfyStallMin * 60UL * 1000UL;
     if ((millis() - ntfyLastProgressTime) >= stallMs) {
-      ntfySend("No print progress — filament change, runout, or jam?",
+      ntfySend("No print progress or toolhead motion — filament change, runout, or jam?",
                "Printer Needs Attention", "high");
       ntfyStallFired = true;
     }
@@ -46,7 +69,7 @@ void ntfyCheckStall(float currentProgress) {
 
 void ntfyPrintComplete(const String& rawPath, float totalSecs) {
   if (ntfyDoneFired) return;
-  
+
   // Strip path and extension for clean display name
   String filename = rawPath;
   int slashIdx = filename.lastIndexOf('/');
@@ -68,6 +91,8 @@ void ntfyPrintComplete(const String& rawPath, float totalSecs) {
 void ntfyResetForNewPrint() {
   ntfyLastProgressTime = millis();
   ntfyLastProgress     = 0.0f;
-  ntfyStallFired       = false;
-  ntfyDoneFired        = false;
+  ntfyStallFired        = false;
+  ntfyDoneFired         = false;
+  ntfyHavePos           = false;
+  ntfyLastX = ntfyLastY = ntfyLastZ = ntfyLastE = 0.0f;
 }
