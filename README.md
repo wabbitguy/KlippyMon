@@ -32,6 +32,7 @@ KlippyMon turns a budget ESP32 CYD into a dedicated 3D printer monitor for Klipp
 ## Hardware Required
 
 - **ESP32 CYD** (Cheap Yellow Display) — ESP32-2432S028R or compatible
+- CYD ST7789 and ILI9341 both supported
 - USB-C cable for flashing
 - Your Klipper printer
 
@@ -61,11 +62,12 @@ Install the following libraries via Arduino Library Manager:
 
 ### 1. Flash the Firmware
 
-1. Open the project in Arduino IDE 2.3.9
-2. Select your board: **ESP32 Dev Module** NO OTA (2MB APP/2MB SPIFFS)
-3. Set the language in `Language.h` (default is English — see [Language Settings](#language-settings))
-4. TimeZone settings are now automatic based on your IP, no need to set anything
-5. Compile and upload to the CYD
+1. Copy correct driver from TFT-eSPI_Configs to Arduino Libraries TFT_eSPI folder. Rename it to User_Setup.h.
+2. Open the project in Arduino IDE 2.3.9
+3. Select your board: **ESP32 Dev Module** NO OTA (2MB APP/2MB SPIFFS)
+4. Set the language in `Language.h` (default is English — see [Language Settings](#language-settings))
+5. TimeZone settings are now automatic based on your IP, no need to set anything
+6. Compile and upload to the CYD
 
 ### 2. Upload the Data Folder (Fonts and Images)
 
