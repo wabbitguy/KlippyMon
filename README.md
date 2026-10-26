@@ -332,4 +332,4 @@ ntfy app is developed by [Philipp Heckel](https://github.com/binwiederhier/ntfy)
 
 ---
 
-*KlippyMon v3.6 © 2026 Wabbit Wanch Design*
+*KlippyMon v3.8 © 2026 Wabbit Wanch Design*
