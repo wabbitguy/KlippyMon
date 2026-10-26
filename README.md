@@ -121,7 +121,7 @@ KlippyMon will poll your printer every 10 seconds to update it's display. Thus i
 
 ## Language Settings
 
-Open `Language.h` and uncomment the language you want. Only one language can be active at a time.
+Open `Settings.h` and uncomment the language you want. Only one language can be active at a time.
 
 ```cpp
 #define LANG_EN   // English  (default)
