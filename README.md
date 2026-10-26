@@ -65,7 +65,7 @@ Install the following libraries via Arduino Library Manager:
 1. Copy correct driver from TFT-eSPI_Configs to Arduino Libraries TFT_eSPI folder. Rename it to User_Setup.h.
 2. Open the project in Arduino IDE 2.3.9
 3. Select your board: **ESP32 Dev Module** NO OTA (2MB APP/2MB SPIFFS)
-4. Set the language in `Language.h` (default is English — see [Language Settings](#language-settings))
+4. Set the language in `Settings.h` (default is English
 5. TimeZone settings are now automatic based on your IP, no need to set anything
 6. Compile and upload to the CYD
 
