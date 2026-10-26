@@ -2,15 +2,14 @@
    NO OTA 2MB APP/2MB SPIFFS
 */
 
-#include "Settings.h"     // some basic settings (TimeZone)
-#include "Language.h"     // language you want to use
+#include "Settings.h"     // some basic settings (language, TimeZone)
 #include "Translation.h"  // language translations
 #include "Ntfy.h"         // for push nofitications if you want them
 #include "NTP_Time.h"     // time server change
 
 //#define FORMAT_LittleFS  // Wipe LittleFS and all files! Disable after use.
 
-#define VERSION "v3.7"
+#define VERSION "v3.8"
 #define hostNameCYD "KlippyMon"
 #define CONFIG "/config.txt"
 

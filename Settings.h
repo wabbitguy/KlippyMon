@@ -2,6 +2,19 @@
    NO OTA 2MB APP/2MB SPIFFS
 */
 
+// ── Language ───────────────────────────────────────────────
+// Uncomment ONE language only. (The ready-made .bin files on GitHub
+// choose their language when they're built, which skips this list.)
+#ifndef LANG_FROM_BUILD
+#define LANG_EN   // English  (default)
+//#define LANG_FR   // French
+//#define LANG_DE   // German
+//#define LANG_ES   // Spanish
+//#define LANG_NL   // Dutch
+//#define LANG_PT   // Portuguese
+//#define LANG_TR   // Turkish
+#endif
+
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
