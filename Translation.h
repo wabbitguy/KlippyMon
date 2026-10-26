@@ -4,7 +4,7 @@
 //
 // HOW TO USE
 // ----------
-// 1. Open Language.h and uncomment ONE language only:
+// 1. Open Settings.h and uncomment ONE language only:
 //
 //      #define LANG_EN   // English  (default)
 //      #define LANG_FR   // French
