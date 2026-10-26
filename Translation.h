@@ -18,10 +18,11 @@
 //
 // FONT NOTE
 // ---------
-// NotoSansBold15 / NotoSansBold36 cover the full Latin-1 Supplement block
-// (U+00C0–U+00FF), so accented characters for French, German, Spanish, Dutch,
-// and Portuguese work without regenerating fonts.
-// Turkish uses ASCII approximations to avoid characters outside Latin-1.
+// strNozzle, strProgress, strBed, strIdle, strPrep and strWifiReset are drawn
+// with the built-in Font 2, which has plain ASCII only: write them without
+// accents (e.g. "Duese", "Progres"), or the accented letters are left out.
+// The other screen texts use NotoSansBold15 (data folder), which has Latin-1
+// plus Turkish ğ ı İ ş Ş. The web page text can use any character.
 //
 // GAUGE HEADING NOTE
 // ------------------
@@ -65,6 +66,10 @@ const char strTotal[]       = "Total";
 const char strHrs[]         = "hrs";
 const char strMins[]        = "mins";
 
+// ── WiFi screens ──────────────────────────────────────────────────────────
+const char strAPActive[]   = "Access Point Active";
+const char strWifiReset[]  = "WiFi reset in 5 seconds";
+
 // ── Web UI ────────────────────────────────────────────────────────────────
 const char wcTitle[]            = "KlippyMon";
 const char wcSecPrinter[]       = "Printer Settings";
@@ -100,7 +105,7 @@ const char wcNtfyPort[]         = "Port (Local Host)";
 
 // ── Gauge headings ────────────────────────────────────────────────────────
 const char strNozzle[]      = "Buse";
-const char strProgress[]    = "Progrès";
+const char strProgress[]    = "Progres";
 const char strBed[]         = "Lit";
 
 // ── Progress gauge centre (max 5 chars) ──────────────────────────────────
@@ -111,6 +116,10 @@ const char strPrep[]        = "PREP";
 const char strTotal[]       = "Total";
 const char strHrs[]         = "hrs";
 const char strMins[]        = "mins";
+
+// ── WiFi screens ──────────────────────────────────────────────────────────
+const char strAPActive[]   = "Point d'accès actif";
+const char strWifiReset[]  = "Reinit. WiFi dans 5 s";
 
 // ── Web UI ────────────────────────────────────────────────────────────────
 const char wcTitle[]            = "KlippyMon";
@@ -146,7 +155,7 @@ const char wcNtfyPort[]         = "Port (Hôte local)";
 #ifdef LANG_DE
 
 // ── Gauge headings ────────────────────────────────────────────────────────
-const char strNozzle[]      = "Düse";
+const char strNozzle[]      = "Duese";
 const char strProgress[]    = "Fortsch.";   // Fortschritt truncated
 const char strBed[]         = "Bett";
 
@@ -158,6 +167,10 @@ const char strPrep[]        = "VOR";        // Vorbereitung
 const char strTotal[]       = "Gesamt";
 const char strHrs[]         = "Std";        // Stunden
 const char strMins[]        = "Min";        // Minuten
+
+// ── WiFi screens ──────────────────────────────────────────────────────────
+const char strAPActive[]   = "Zugangspunkt aktiv";
+const char strWifiReset[]  = "WiFi-Reset in 5 Sek.";
 
 // ── Web UI ────────────────────────────────────────────────────────────────
 const char wcTitle[]            = "KlippyMon";
@@ -206,6 +219,10 @@ const char strTotal[]       = "Total";
 const char strHrs[]         = "hrs";
 const char strMins[]        = "mins";
 
+// ── WiFi screens ──────────────────────────────────────────────────────────
+const char strAPActive[]   = "Punto de acceso activo";
+const char strWifiReset[]  = "Reinicio WiFi en 5 s";
+
 // ── Web UI ────────────────────────────────────────────────────────────────
 const char wcTitle[]            = "KlippyMon";
 const char wcSecPrinter[]       = "Configuración impresora";
@@ -252,6 +269,10 @@ const char strPrep[]        = "PREP";
 const char strTotal[]       = "Totaal";
 const char strHrs[]         = "uur";
 const char strMins[]        = "min";
+
+// ── WiFi screens ──────────────────────────────────────────────────────────
+const char strAPActive[]   = "Toegangspunt actief";
+const char strWifiReset[]  = "WiFi-reset over 5 sec.";
 
 // ── Web UI ────────────────────────────────────────────────────────────────
 const char wcTitle[]            = "KlippyMon";
@@ -300,6 +321,10 @@ const char strTotal[]       = "Total";
 const char strHrs[]         = "hrs";
 const char strMins[]        = "mins";
 
+// ── WiFi screens ──────────────────────────────────────────────────────────
+const char strAPActive[]   = "Ponto de acesso ativo";
+const char strWifiReset[]  = "Reinicio WiFi em 5 s";
+
 // ── Web UI ────────────────────────────────────────────────────────────────
 const char wcTitle[]            = "KlippyMon";
 const char wcSecPrinter[]       = "Configurações da impressora";
@@ -347,30 +372,34 @@ const char strTotal[]       = "Toplam";
 const char strHrs[]         = "saat";
 const char strMins[]        = "dak";        // dakika
 
+// ── WiFi screens ──────────────────────────────────────────────────────────
+const char strAPActive[]   = "Erişim noktası aktif";
+const char strWifiReset[]  = "WiFi 5 sn icinde sifirlanir";
+
 // ── Web UI ────────────────────────────────────────────────────────────────
 const char wcTitle[]            = "KlippyMon";
-const char wcSecPrinter[]       = "Yazici Ayarlari";
+const char wcSecPrinter[]       = "Yazıcı Ayarları";
 const char wcSecWifi[]          = "WiFi Kontrolü";
-const char wcPrinterIP[]        = "Yazici IP";
-const char wcPrinterPort[]      = "Yazici Portu";
-const char wcClock24[]          = "24 saat formati";
+const char wcPrinterIP[]        = "Yazıcı IP";
+const char wcPrinterPort[]      = "Yazıcı Portu";
+const char wcClock24[]          = "24 saat formatı";
 const char wcSaveBtn[]          = "Kaydet";
-const char wcWifiResetBtn[]     = "&#x26A0; WiFi Sifirla";
-const char wcWifiResetTitle[]   = "&#x26A0; WiFi Sifirla?";
-const char wcWifiResetBody[]    = "WiFi bilgilerini siler ve yapilandirma modunda yeniden baslatir. KlippyMon hotspotuna baglanin.";
-const char wcWifiResetYes[]     = "Evet, sifirla";
-const char wcWifiResetCancel[]  = "Iptal";
-const char wcWifiResetting[]    = "WiFi sifirlanıyor...";
-const char wcWifiResetHotspot[] = "Yeniden baslatiliyor. <strong>KlippyMon</strong> hotspotuna baglanin.";
+const char wcWifiResetBtn[]     = "&#x26A0; WiFi Sıfırla";
+const char wcWifiResetTitle[]   = "&#x26A0; WiFi Sıfırla?";
+const char wcWifiResetBody[]    = "WiFi bilgilerini siler ve yapılandırma modunda yeniden başlatır. KlippyMon hotspotuna bağlanın.";
+const char wcWifiResetYes[]     = "Evet, sıfırla";
+const char wcWifiResetCancel[]  = "İptal";
+const char wcWifiResetting[]    = "WiFi sıfırlanıyor...";
+const char wcWifiResetHotspot[] = "Yeniden başlatılıyor. <strong>KlippyMon</strong> hotspotuna bağlanın.";
 const char wcSaved[]            = "&#10003; Ayarlar kaydedildi.";
 
 // ── ntfy Notifications (Web UI) ──────────────────────────────────────────
-const char wcSecNtfy[]          = "Anlik Bildirimler (ntfy)";
-const char wcNtfyEnabled[]      = "ntfy'yi etkinlestir";
+const char wcSecNtfy[]          = "Anlık Bildirimler (ntfy)";
+const char wcNtfyEnabled[]      = "ntfy'yi etkinleştir";
 const char wcNtfyServer[]       = "Sunucu URL";
 const char wcNtfyTopic[]        = "Konu";
-const char wcNtfyToken[]        = "Token (istege bagli)";
-const char wcNtfyStallMin[]     = "Bekleme suresi (dakika)";
+const char wcNtfyToken[]        = "Token (isteğe bağlı)";
+const char wcNtfyStallMin[]     = "Bekleme süresi (dakika)";
 const char wcNtfyPort[]         = "Port (Yerel host)";
 
 #endif // LANG_TR

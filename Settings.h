@@ -85,15 +85,15 @@ int thumbBufferSize = 0;
 const char printer_Info[] PROGMEM = R"rawliteral(
 <form action="/updatePrinterInfo">
   <div class="field">
-    <label>Printer IP</label>
+    <label>%LBL_PRINTER_IP%</label>
     <input type="text" name="printerIP" value="%IP%">
   </div>
   <div class="field">
-    <label>Printer Port</label>
+    <label>%LBL_PRINTER_PORT%</label>
     <input type="text" name="printerPort" value="%PORT%">
   </div>
   <div class="field">
-    <label>24 Hour Clock</label>
+    <label>%LBL_CLOCK24%</label>
     <label class="toggle">
       <input type="checkbox" name="show24HR" %boxState%>
       <span class="slider"></span>
@@ -106,7 +106,7 @@ const char printer_Info[] PROGMEM = R"rawliteral(
 // ============================================================
 const char HTML_TEMPLATE[] PROGMEM = R"rawliteral(
 <!DOCTYPE html><html>
-<head><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KlippyMon</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }

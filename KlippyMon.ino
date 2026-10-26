@@ -898,7 +898,7 @@ void configModeCallback(WiFiManager *myWiFiManager) {
   tft.drawString(String(hostNameCYD), SCREEN_W / 2, SCREEN_H / 2, 4);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
   tft.loadFont(AA_FONT_SMALL, LittleFS);
-  tft.drawString("Access Point Active", SCREEN_W / 2, (SCREEN_H / 2) + 36, 2);
+  tft.drawString(strAPActive, SCREEN_W / 2, (SCREEN_H / 2) + 36, 2);
   tft.unloadFont();
   delay(2000);
 }
@@ -1018,6 +1018,9 @@ void handlePrinterUpdate() {
 
 String getPrinterSetup() {
   String printerForm = String(printer_Info);
+  printerForm.replace("%LBL_PRINTER_IP%", String(wcPrinterIP));
+  printerForm.replace("%LBL_PRINTER_PORT%", String(wcPrinterPort));
+  printerForm.replace("%LBL_CLOCK24%", String(wcClock24));
   printerForm.replace("%IP%", printerIP);
   printerForm.replace("%PORT%", printerPort);
   printerForm.replace("%boxState%", show24HR ? "checked" : "unchecked");
@@ -1193,7 +1196,7 @@ void handleWifiReset() {
   tft.fillScreen(TFT_BLACK);
   tft.setTextDatum(TC_DATUM);
   tft.setTextColor(TFT_GREEN, TFT_BLACK);
-  tft.drawString("WiFi reset in 5 seconds", SCREEN_W / 2, SCREEN_H / 2, 2);
+  tft.drawString(strWifiReset, SCREEN_W / 2, SCREEN_H / 2, 2);
   delay(5000);
   redirectHome();
   delay(1000);
