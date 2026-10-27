@@ -58,7 +58,17 @@ Install the following libraries via Arduino Library Manager:
 ---
 
 
-## Quick Start
+## Quick Start Easy Flash
+
+### 1. Flashing can be done without any Arduino IDE usage if preferred:
+- Connect your ESP32CYD to your computers USB port
+- Select your board driver (ILI9341 or ST7789)
+- Select your language
+- Select the port the CYD is connected to
+- Flash directly to your CYD: <https://wabbitguy.github.io/KlippyMon-Install/>
+
+
+## Adruino IDE Flashing
 
 ### 1. Flash the Firmware
 
