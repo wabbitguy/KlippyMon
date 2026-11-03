@@ -13,6 +13,7 @@
 //      #define LANG_NL   // Dutch
 //      #define LANG_PT   // Portuguese
 //      #define LANG_TR   // Turkish
+//      #define LANG_IT   // Italian
 //
 // 2. Recompile and flash. That's it!
 //
@@ -42,7 +43,7 @@
 // -----------------------------------------------------------------------------
 #if !defined(LANG_EN) && !defined(LANG_FR) && !defined(LANG_DE) && \
     !defined(LANG_ES) && !defined(LANG_NL) && !defined(LANG_PT) && \
-    !defined(LANG_TR)
+    !defined(LANG_TR) && !defined(LANG_IT)
   #define LANG_EN
 #endif
 
@@ -77,6 +78,8 @@ const char wcSecWifi[]          = "WiFi Control";
 const char wcPrinterIP[]        = "Printer IP";
 const char wcPrinterPort[]      = "Printer Port";
 const char wcClock24[]          = "24 Hour Clock";
+const char wcInvert[]           = "Invert colours";
+const char wcInvertHint[]       = "Colour inversion correction";
 const char wcSaveBtn[]          = "Update &amp; Save";
 const char wcWifiResetBtn[]     = "&#x26A0; Reset WiFi";
 const char wcWifiResetTitle[]   = "&#x26A0; Reset WiFi?";
@@ -85,7 +88,8 @@ const char wcWifiResetYes[]     = "Yes, reset";
 const char wcWifiResetCancel[]  = "Cancel";
 const char wcWifiResetting[]    = "Resetting WiFi...";
 const char wcWifiResetHotspot[] = "Rebooting. Connect to the <strong>KlippyMon</strong> hotspot.";
-const char wcSaved[]            = "&#10003; Settings saved and applied.";
+const char wcSaved[]            = "&#10003; Settings updated and saved.";  // popup after Update
+const char wcOkBtn[]            = "OK";  // closes that popup
 
 // ── ntfy Notifications (Web UI) ──────────────────────────────────────────
 const char wcSecNtfy[]          = "Push Notifications (ntfy)";
@@ -95,6 +99,10 @@ const char wcNtfyTopic[]        = "Topic";
 const char wcNtfyToken[]        = "Token (optional)";
 const char wcNtfyStallMin[]     = "Stall Timeout (minutes)";
 const char wcNtfyPort[]         = "Port (Local Host)";
+
+// ── Time zone (Web UI) ───────────────────────────────────────────────────
+const char wcTzOverride[]       = "Time Zone Override";
+const char wcTzReceived[]       = "Received";  // as in "Received: UTC−8"
 
 #endif // LANG_EN
 
@@ -128,6 +136,8 @@ const char wcSecWifi[]          = "Contrôle WiFi";
 const char wcPrinterIP[]        = "IP imprimante";
 const char wcPrinterPort[]      = "Port imprimante";
 const char wcClock24[]          = "Horloge 24h";
+const char wcInvert[]           = "Inverser les couleurs";
+const char wcInvertHint[]       = "Correction de l'inversion des couleurs";
 const char wcSaveBtn[]          = "Enregistrer";
 const char wcWifiResetBtn[]     = "&#x26A0; Réinitialiser WiFi";
 const char wcWifiResetTitle[]   = "&#x26A0; Réinitialiser WiFi ?";
@@ -136,7 +146,8 @@ const char wcWifiResetYes[]     = "Oui, réinitialiser";
 const char wcWifiResetCancel[]  = "Annuler";
 const char wcWifiResetting[]    = "Réinitialisation WiFi...";
 const char wcWifiResetHotspot[] = "Redémarrage. Connectez-vous au hotspot <strong>KlippyMon</strong>.";
-const char wcSaved[]            = "&#10003; Paramètres enregistrés.";
+const char wcSaved[]            = "&#10003; Paramètres mis à jour et enregistrés.";  // popup after Update
+const char wcOkBtn[]            = "OK";  // closes that popup
 
 // ── ntfy Notifications (Web UI) ──────────────────────────────────────────
 const char wcSecNtfy[]          = "Notifications push (ntfy)";
@@ -146,6 +157,10 @@ const char wcNtfyTopic[]        = "Sujet";
 const char wcNtfyToken[]        = "Jeton (optionnel)";
 const char wcNtfyStallMin[]     = "Délai de blocage (minutes)";
 const char wcNtfyPort[]         = "Port (Hôte local)";
+
+// ── Time zone (Web UI) ───────────────────────────────────────────────────
+const char wcTzOverride[]       = "Fuseau horaire manuel";
+const char wcTzReceived[]       = "Reçu";  // as in "Received: UTC−8"
 
 #endif // LANG_FR
 
@@ -179,6 +194,8 @@ const char wcSecWifi[]          = "WiFi-Steuerung";
 const char wcPrinterIP[]        = "Drucker IP";
 const char wcPrinterPort[]      = "Drucker Port";
 const char wcClock24[]          = "24-Stunden-Uhr";
+const char wcInvert[]           = "Farben invertieren";
+const char wcInvertHint[]       = "Korrektur der Farbumkehrung";
 const char wcSaveBtn[]          = "Speichern";
 const char wcWifiResetBtn[]     = "&#x26A0; WiFi zurücksetzen";
 const char wcWifiResetTitle[]   = "&#x26A0; WiFi zurücksetzen?";
@@ -187,7 +204,8 @@ const char wcWifiResetYes[]     = "Ja, zurücksetzen";
 const char wcWifiResetCancel[]  = "Abbrechen";
 const char wcWifiResetting[]    = "WiFi wird zurückgesetzt...";
 const char wcWifiResetHotspot[] = "Neustart. Verbinde mit dem Hotspot <strong>KlippyMon</strong>.";
-const char wcSaved[]            = "&#10003; Einstellungen gespeichert.";
+const char wcSaved[]            = "&#10003; Einstellungen aktualisiert und gespeichert.";  // popup after Update
+const char wcOkBtn[]            = "OK";  // closes that popup
 
 // ── ntfy Notifications (Web UI) ──────────────────────────────────────────
 const char wcSecNtfy[]          = "Push-Benachrichtigungen (ntfy)";
@@ -197,6 +215,10 @@ const char wcNtfyTopic[]        = "Thema";
 const char wcNtfyToken[]        = "Token (optional)";
 const char wcNtfyStallMin[]     = "Stillstandszeit (Minuten)";
 const char wcNtfyPort[]         = "Port (Lokaler Host)";
+
+// ── Time zone (Web UI) ───────────────────────────────────────────────────
+const char wcTzOverride[]       = "Zeitzone manuell";
+const char wcTzReceived[]       = "Empfangen";  // as in "Received: UTC−8"
 
 #endif // LANG_DE
 
@@ -230,6 +252,8 @@ const char wcSecWifi[]          = "Control WiFi";
 const char wcPrinterIP[]        = "IP impresora";
 const char wcPrinterPort[]      = "Puerto impresora";
 const char wcClock24[]          = "Reloj de 24 horas";
+const char wcInvert[]           = "Invertir colores";
+const char wcInvertHint[]       = "Corrección de inversión de color";
 const char wcSaveBtn[]          = "Guardar";
 const char wcWifiResetBtn[]     = "&#x26A0; Restablecer WiFi";
 const char wcWifiResetTitle[]   = "&#x26A0; Restablecer WiFi?";
@@ -238,7 +262,8 @@ const char wcWifiResetYes[]     = "Sí, restablecer";
 const char wcWifiResetCancel[]  = "Cancelar";
 const char wcWifiResetting[]    = "Restableciendo WiFi...";
 const char wcWifiResetHotspot[] = "Reiniciando. Conéctese al hotspot <strong>KlippyMon</strong>.";
-const char wcSaved[]            = "&#10003; Configuración guardada.";
+const char wcSaved[]            = "&#10003; Configuración actualizada y guardada.";  // popup after Update
+const char wcOkBtn[]            = "Aceptar";  // closes that popup
 
 // ── ntfy Notifications (Web UI) ──────────────────────────────────────────
 const char wcSecNtfy[]          = "Notificaciones push (ntfy)";
@@ -248,6 +273,10 @@ const char wcNtfyTopic[]        = "Tema";
 const char wcNtfyToken[]        = "Token (opcional)";
 const char wcNtfyStallMin[]     = "Tiempo de espera (minutos)";
 const char wcNtfyPort[]         = "Puerto (Host local)";
+
+// ── Time zone (Web UI) ───────────────────────────────────────────────────
+const char wcTzOverride[]       = "Zona horaria manual";
+const char wcTzReceived[]       = "Recibido";  // as in "Received: UTC−8"
 
 #endif // LANG_ES
 
@@ -281,6 +310,8 @@ const char wcSecWifi[]          = "WiFi-beheer";
 const char wcPrinterIP[]        = "Printer IP";
 const char wcPrinterPort[]      = "Printer poort";
 const char wcClock24[]          = "24-uursklok";
+const char wcInvert[]           = "Kleuren omkeren";
+const char wcInvertHint[]       = "Correctie voor kleurinversie";
 const char wcSaveBtn[]          = "Opslaan";
 const char wcWifiResetBtn[]     = "&#x26A0; WiFi resetten";
 const char wcWifiResetTitle[]   = "&#x26A0; WiFi resetten?";
@@ -289,7 +320,8 @@ const char wcWifiResetYes[]     = "Ja, resetten";
 const char wcWifiResetCancel[]  = "Annuleren";
 const char wcWifiResetting[]    = "WiFi wordt gereset...";
 const char wcWifiResetHotspot[] = "Herstarten. Verbind met het <strong>KlippyMon</strong> hotspot.";
-const char wcSaved[]            = "&#10003; Instellingen opgeslagen.";
+const char wcSaved[]            = "&#10003; Instellingen bijgewerkt en opgeslagen.";  // popup after Update
+const char wcOkBtn[]            = "OK";  // closes that popup
 
 // ── ntfy Notifications (Web UI) ──────────────────────────────────────────
 const char wcSecNtfy[]          = "Pushmeldingen (ntfy)";
@@ -299,6 +331,10 @@ const char wcNtfyTopic[]        = "Onderwerp";
 const char wcNtfyToken[]        = "Token (optioneel)";
 const char wcNtfyStallMin[]     = "Wachttijd (minuten)";
 const char wcNtfyPort[]         = "Poort (Lokale host)";
+
+// ── Time zone (Web UI) ───────────────────────────────────────────────────
+const char wcTzOverride[]       = "Tijdzone handmatig";
+const char wcTzReceived[]       = "Ontvangen";  // as in "Received: UTC−8"
 
 #endif // LANG_NL
 
@@ -332,6 +368,8 @@ const char wcSecWifi[]          = "Controle WiFi";
 const char wcPrinterIP[]        = "IP da impressora";
 const char wcPrinterPort[]      = "Porta da impressora";
 const char wcClock24[]          = "Relógio 24h";
+const char wcInvert[]           = "Inverter cores";
+const char wcInvertHint[]       = "Correção de inversão de cores";
 const char wcSaveBtn[]          = "Salvar";
 const char wcWifiResetBtn[]     = "&#x26A0; Redefinir WiFi";
 const char wcWifiResetTitle[]   = "&#x26A0; Redefinir WiFi?";
@@ -340,7 +378,8 @@ const char wcWifiResetYes[]     = "Sim, redefinir";
 const char wcWifiResetCancel[]  = "Cancelar";
 const char wcWifiResetting[]    = "Redefinindo WiFi...";
 const char wcWifiResetHotspot[] = "Reiniciando. Conecte-se ao hotspot <strong>KlippyMon</strong>.";
-const char wcSaved[]            = "&#10003; Configurações salvas.";
+const char wcSaved[]            = "&#10003; Configurações atualizadas e salvas.";  // popup after Update
+const char wcOkBtn[]            = "OK";  // closes that popup
 
 // ── ntfy Notifications (Web UI) ──────────────────────────────────────────
 const char wcSecNtfy[]          = "Notificações push (ntfy)";
@@ -350,6 +389,10 @@ const char wcNtfyTopic[]        = "Tópico";
 const char wcNtfyToken[]        = "Token (opcional)";
 const char wcNtfyStallMin[]     = "Tempo de espera (minutos)";
 const char wcNtfyPort[]         = "Porta (Host local)";
+
+// ── Time zone (Web UI) ───────────────────────────────────────────────────
+const char wcTzOverride[]       = "Fuso horário manual";
+const char wcTzReceived[]       = "Recebido";  // as in "Received: UTC−8"
 
 #endif // LANG_PT
 
@@ -383,6 +426,8 @@ const char wcSecWifi[]          = "WiFi Kontrolü";
 const char wcPrinterIP[]        = "Yazıcı IP";
 const char wcPrinterPort[]      = "Yazıcı Portu";
 const char wcClock24[]          = "24 saat formatı";
+const char wcInvert[]           = "Renkleri ters çevir";
+const char wcInvertHint[]       = "Renk ters çevirme düzeltmesi";
 const char wcSaveBtn[]          = "Kaydet";
 const char wcWifiResetBtn[]     = "&#x26A0; WiFi Sıfırla";
 const char wcWifiResetTitle[]   = "&#x26A0; WiFi Sıfırla?";
@@ -391,7 +436,8 @@ const char wcWifiResetYes[]     = "Evet, sıfırla";
 const char wcWifiResetCancel[]  = "İptal";
 const char wcWifiResetting[]    = "WiFi sıfırlanıyor...";
 const char wcWifiResetHotspot[] = "Yeniden başlatılıyor. <strong>KlippyMon</strong> hotspotuna bağlanın.";
-const char wcSaved[]            = "&#10003; Ayarlar kaydedildi.";
+const char wcSaved[]            = "&#10003; Ayarlar güncellendi ve kaydedildi.";  // popup after Update
+const char wcOkBtn[]            = "Tamam";  // closes that popup
 
 // ── ntfy Notifications (Web UI) ──────────────────────────────────────────
 const char wcSecNtfy[]          = "Anlık Bildirimler (ntfy)";
@@ -402,6 +448,68 @@ const char wcNtfyToken[]        = "Token (isteğe bağlı)";
 const char wcNtfyStallMin[]     = "Bekleme süresi (dakika)";
 const char wcNtfyPort[]         = "Port (Yerel host)";
 
+// ── Time zone (Web UI) ───────────────────────────────────────────────────
+const char wcTzOverride[]       = "Saat dilimi elle";
+const char wcTzReceived[]       = "Alınan";  // as in "Received: UTC−8"
+
 #endif // LANG_TR
+
+// =============================================================================
+//  ITALIAN
+// =============================================================================
+#ifdef LANG_IT
+
+// ── Gauge headings ────────────────────────────────────────────────────────
+const char strNozzle[]      = "Ugello";
+const char strProgress[]    = "Progresso";
+const char strBed[]         = "Piatto";
+
+// ── Progress gauge centre (max 5 chars) ──────────────────────────────────
+const char strIdle[]        = "Fermo";
+const char strPrep[]        = "PREP";       // Preparazione
+
+// ── Success screen ────────────────────────────────────────────────────────
+const char strTotal[]       = "Totale";
+const char strHrs[]         = "ore";
+const char strMins[]        = "min";
+
+// ── WiFi screens ──────────────────────────────────────────────────────────
+const char strAPActive[]   = "Access point attivo";
+const char strWifiReset[]  = "Reset WiFi tra 5 secondi";
+
+// ── Web UI ────────────────────────────────────────────────────────────────
+const char wcTitle[]            = "KlippyMon";
+const char wcSecPrinter[]       = "Impostazioni stampante";
+const char wcSecWifi[]          = "Controllo WiFi";
+const char wcPrinterIP[]        = "IP stampante";
+const char wcPrinterPort[]      = "Porta stampante";
+const char wcClock24[]          = "Orologio 24 ore";
+const char wcInvert[]           = "Inverti colori";
+const char wcInvertHint[]       = "Correzione dell'inversione dei colori";
+const char wcSaveBtn[]          = "Aggiorna e salva";
+const char wcWifiResetBtn[]     = "&#x26A0; Reset WiFi";
+const char wcWifiResetTitle[]   = "&#x26A0; Reset WiFi?";
+const char wcWifiResetBody[]    = "Cancella le credenziali WiFi salvate e riavvia in modalità configurazione. Riconnettiti tramite l'hotspot KlippyMon.";
+const char wcWifiResetYes[]     = "Sì, resetta";
+const char wcWifiResetCancel[]  = "Annulla";
+const char wcWifiResetting[]    = "Reset WiFi in corso...";
+const char wcWifiResetHotspot[] = "Riavvio in corso. Connettiti all'hotspot <strong>KlippyMon</strong>.";
+const char wcSaved[]            = "&#10003; Impostazioni aggiornate e salvate.";  // popup after Update
+const char wcOkBtn[]            = "OK";  // closes that popup
+
+// ── ntfy Notifications (Web UI) ──────────────────────────────────────────
+const char wcSecNtfy[]          = "Notifiche push (ntfy)";
+const char wcNtfyEnabled[]      = "Abilita ntfy";
+const char wcNtfyServer[]       = "URL del server";
+const char wcNtfyTopic[]        = "Topic";
+const char wcNtfyToken[]        = "Token (facoltativo)";
+const char wcNtfyStallMin[]     = "Timeout stallo (minuti)";
+const char wcNtfyPort[]         = "Porta (host locale)";
+
+// ── Time zone (Web UI) ───────────────────────────────────────────────────
+const char wcTzOverride[]       = "Fuso orario manuale";
+const char wcTzReceived[]       = "Ricevuto";  // as in "Received: UTC−8"
+
+#endif // LANG_IT
 
 #endif // TRANSLATION_H

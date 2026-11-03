@@ -3,8 +3,7 @@
 */
 
 // ── Language ───────────────────────────────────────────────
-// Uncomment ONE language only. (The ready-made .bin files on GitHub
-// choose their language when they're built, which skips this list.)
+// Uncomment ONE language only.
 #ifndef LANG_FROM_BUILD
 #define LANG_EN   // English  (default)
 //#define LANG_FR   // French
@@ -13,6 +12,7 @@
 //#define LANG_NL   // Dutch
 //#define LANG_PT   // Portuguese
 //#define LANG_TR   // Turkish
+//#define LANG_IT   // Italian
 #endif
 
 #include <WiFi.h>
@@ -29,9 +29,10 @@
 #include <WebServer.h>
 #include <PNGdec.h>
 
-// Timezone offset in seconds east of UTC for the primary location.
-// -25200 = UTC-7 (PDT).  Updated automatically at 2am and on web save.
-int32_t tzOffset = -25200;
+// Timezone offset
+int32_t tzOffset = -25200; // refreshes @2am
+bool    tzOverride = false;        // web page override box
+int32_t tzOverrideOffset = -25200; // used when tzOverride is on
 
 // IP information of your printer on the LAN
 String printerIP = "192.168.1.6";  // default IP, set yours via the web page
@@ -48,11 +49,13 @@ String  ntfyPort     = "2586";// can be any port you want if local hosting
 String printQuery = "/printer/objects/query?print_stats&display_status&extruder&heater_bed&toolhead";
 uint8_t ntfyStallMin = 5;  // was 2 — too short even with position tracking
 String printerINFO = "/printer/info";
-String printerURLQ = "";
-String printerURLInfo = "";
 String thePrintFile = "";  // filename of the currently printing file
 
 bool show24HR = false;// show 24hr clock
+bool invertColours = false;  // true if black shows as white (some CYD panels need it)
+
+// ── Screen saver ───────────────────────────────────────────
+#define SCREENSAVER_MINUTES 10 //offline mins before Matrix rain shows up
 
 // ---------------- GRAPHICS (in LittleFS /data folder) ----------------
 #define OFFLINE_IMAGE "/Asleep.bmp"     // 24-bit BMP, 186 x 186
@@ -76,14 +79,13 @@ float chamberTarget = 0.0;
 String chamberSensorName = "";// depends what the brand calls their chamber
 
 PNG png;
-HTTPClient httpThumb;
 uint8_t *thumbBuffer = nullptr;
 int thumbBufferSize = 0;
 
 // ---------------- WEB PAGE TEMPLATE ----------------
 // Placeholders: %IP%  %PORT%  %MBT%  %MNT%  %boxState%
 const char printer_Info[] PROGMEM = R"rawliteral(
-<form action="/updatePrinterInfo">
+<form method="POST" action="/updatePrinterInfo">
   <div class="field">
     <label>%LBL_PRINTER_IP%</label>
     <input type="text" name="printerIP" value="%IP%">
@@ -98,6 +100,17 @@ const char printer_Info[] PROGMEM = R"rawliteral(
       <input type="checkbox" name="show24HR" %boxState%>
       <span class="slider"></span>
     </label>
+  </div>
+  <div class="field">
+    <div><label>%LBL_INVERT%</label><div class="hint">%LBL_INVERT_HINT%</div></div>
+    <label class="toggle">
+      <input type="checkbox" name="invertColours" %invertState%>
+      <span class="slider"></span>
+    </label>
+  </div>
+  <div class="field">
+    <label>%LBL_TZ_OVERRIDE%</label>
+    %TZ_OVERRIDE%
   </div>
 )rawliteral";
 
@@ -123,6 +136,10 @@ header h4 { font-size: 0.9em; color: #555; font-weight: normal; margin-top: 4px;
 .field label { font-size: 0.95em; color: #ccc; }
 .field input[type=text] { width: 180px; padding: 8px 12px; background: #333; border: 1px solid #444; border-radius: 6px; font-size: 0.95em; color: #fff; }
 .field input[type=text]:focus { outline: none; border-color: #00bcd4; }
+.field select { padding: 8px 12px; background: #333; border: 1px solid #444; border-radius: 6px; font-size: 0.95em; color: #fff; }
+.tzbox { display: flex; align-items: center; gap: 10px; }
+.tzrecv { font-size: 0.8em; color: #888; margin-top: 4px; text-align: right; }
+.hint { font-size: 0.8em; color: #888; margin-top: 4px; }
 .toggle { position: relative; width: 46px; height: 26px; }
 .toggle input { opacity: 0; width: 0; height: 0; }
 .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #444; border-radius: 26px; transition: 0.3s; }
@@ -142,6 +159,8 @@ input:checked + .slider:before { transform: translateX(20px); }
 .mbtns{display:flex;gap:10px;justify-content:center}
 .mok{background:#c0392b;border:none;color:#fff;padding:9px 22px;border-radius:7px;font-size:14px;font-weight:600;cursor:pointer}
 .mno{background:transparent;border:1px solid #888;color:#888;padding:9px 22px;border-radius:7px;font-size:14px;cursor:pointer}
+.modal.okm{border-color:#4caf50;cursor:pointer}.modal.okm h3{color:#81c784;margin-bottom:20px}
+.mok.okb{background:#4caf50}
 </style></head>
 <body><div class="container">
 <div class='mbg' id='wm'><div class='modal'>
@@ -156,6 +175,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 <h3>WabbitWanch Design</h3>
 <h4>Version %VERSION% &nbsp;&bull;&nbsp; WiFi %WIFI_QUALITY%%</h4>
 </header>
+%SAVED_POPUP%
 <div class="card">
 <h2>%SEC_PRINTER%</h2>
 %PRINTER_SETUP%

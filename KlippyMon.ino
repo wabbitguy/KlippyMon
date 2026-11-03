@@ -9,7 +9,7 @@
 
 //#define FORMAT_LittleFS  // Wipe LittleFS and all files! Disable after use.
 
-#define VERSION "v3.8"
+#define VERSION "v4.0"
 #define hostNameCYD "KlippyMon"
 #define CONFIG "/config.txt"
 
@@ -58,10 +58,7 @@ uint16_t lastNozzleTemp = 9999, lastBedTemp = 9999, lastProgress = 9999;
 bool greenON = true;
 bool greenOFF = false;
 
-bool enablePoll = false;
-uint8_t thePollTime = 10;
-
-bool forcePoll = true;  // true at boot, true after settings update
+uint8_t thePollTime = 10;  // seconds between printer polls
 
 float savedTotalDuration = 0.0;  // save the total duration so it doesn't get nop'd out
 
@@ -87,6 +84,46 @@ String thePrintFileRaw;  // full untruncated path, used only for thumbnail fetch
 #define HTTP_CONNECT_TIMEOUT 2000   // ms - increase if on printer is on WiFi
 #define HTTP_RESPONSE_TIMEOUT 3000  // ms
 
+// ---------------- PRINTER POLLING TASK (core 0) ----------------
+struct PrinterData {
+  String name;   // "" = no printer
+  bool ok;
+  String state;
+  String file;   // full path
+  float progress, nozzleTemp, nozzleTarget, bedTemp, bedTarget, printDuration, totalDuration;
+  float toolX, toolY, toolZ, toolE;
+  float chamberTemp, chamberTarget;
+  uint32_t seq;  // bumped after every poll
+};
+
+PrinterData sharedData;
+uint32_t lastSeq = 0;
+SemaphoreHandle_t dataMutex;      // shared data, printerIP/Port, thumbnail
+TaskHandle_t netTaskHandle;
+bool netReset = false;            // settings changed
+String thumbRequest = "";
+volatile bool thumbDone = false;
+
+#define NET_POLL_NOW 0x01
+#define NET_THUMB 0x02
+#define NET_STACK 12288
+
+// ---------------- SCREEN SAVER ----------------
+#define matrixTopY 48
+#define MATRIX_COLS 20   // 12px wide
+#define MATRIX_ROWS 17   // 16px high
+#define MATRIX_FRAME_MS 50
+
+struct MatrixDrop {
+  int16_t head;   // negative = waiting
+  uint8_t len;
+  uint8_t speed;  // frames per row
+  uint8_t tick;
+};
+MatrixDrop drops[MATRIX_COLS];
+bool saverOn = false;
+uint32_t offlineSince = 0;
+
 // ---------------- CLOCK ----------------
 uint8_t lastSecond = 99;
 uint8_t lastMinute, lastHour, lastDay, lastMonth;
@@ -105,35 +142,46 @@ void drawBmp(fs::FS &fs, const char *filename, int16_t x, int16_t y);
 uint16_t read16(fs::File &f);
 uint32_t read32(fs::File &f);
 void handle_ClockDisplay();
-void handlePolling(int8_t theSeconds);
 void handleGaugeHeadings();
 void handleGauge(uint8_t whichGauge, int16_t gaugeValue);
 void setRGB(bool redLevel, bool greenLevel, bool blueLevel);
-void handleHostName();
+void netTask(void *param);
+String fetchHostName(const String &base);
+String buildQueryURL(const String &base);
+void serviceThumbnail(const String &ip, const String &port);
+uint8_t *fetchThumbnail(const String &ip, const String &port, const String &rawPath, int &len);
+void handlePrinterData();
+void applyPrinterData(const PrinterData &d);
+void requestThumbnail(const String &rawPath);
+void handleThumbnail();
+bool drawThumbnail(uint8_t *buf, int len);
+void handleScreenSaver();
+void resetDrop(MatrixDrop &m);
+void drawMatrixCell(uint8_t col, int16_t row, uint16_t color);
 void handleTimeUsed();
 void handleETA();
 void estimateTimeRemaining(float elapsedSeconds, float percentComplete, char *result);
-bool fetchPrinterData();
+bool fetchPrinterData(const String &url, PrinterData &d);
 PrinterState determinePrinterState();
 void updatePrinterDisplay(PrinterState state);
 void handlePrinterStatus();
 void configModeCallback(WiFiManager *myWiFiManager);
-String SendHTML();
+String SendHTML(String savedPopup = "");
+String buildSavedPopup();
 void handlePrinterUpdate();
 String getPrinterSetup();
 void writeSettings();
 void readSettings();
-void buildPrinterURLs();
 String extractFileName(const String &path, bool withExt);
+void drawFileName();
 void handleWifiReset();
 void redirectHome();
 void drawWiFiQuality();
 int8_t getWifiQuality();
 void handle_OnConnect();
 void drawVersionString();
-bool fetchAndDrawThumbnail();
 int pngDraw(PNGDRAW *pDraw);
-void fetchPrinterLimits();                            // get the printers default limits
+void fetchPrinterLimits(const String &base);          // get the printers default limits
 String ntfyServerDisplay();                           // cleans up the URL for local host server
 void beginHTTP(HTTPClient &http, const String &url);  // timeouts for http
 
@@ -150,13 +198,14 @@ void drawVersionString() {
 //  SETUP
 // ============================================================
 void handle_OnConnect() {
-  server.send(200, "text/html", SendHTML());
+  server.send(200, "text/html", SendHTML(server.hasArg("saved") ? buildSavedPopup() : ""));
 }
 
 void setup() {
   Serial.begin(115200);
 
   tft.init();
+  tft.invertDisplay(false);  // off until the settings are loaded (invertColours); don't rely on whichever User_Setup.h is in the library
   tft.setRotation(0);
 
 #ifdef FORMAT_LittleFS
@@ -171,6 +220,9 @@ void setup() {
     while (1) yield();
   }
   Serial.println("LittleFS ready.");
+
+  readSettings();  // early, so an inverted panel is right from the WiFi setup screen on
+  tft.invertDisplay(invertColours);
 
   pinMode(RED_PIN, OUTPUT);
   pinMode(GREEN_PIN, OUTPUT);
@@ -205,9 +257,12 @@ void setup() {
   udp.begin(localPort);
   syncTime();
 
-  readSettings();
   if (checkTimezoneOffsets()) writeSettings();
-  buildPrinterURLs();
+
+  dataMutex = xSemaphoreCreateMutex();
+  ntfyQueue = xQueueCreate(4, sizeof(NtfyMsg));
+  offlineSince = millis();
+  xTaskCreatePinnedToCore(netTask, "netTask", NET_STACK, NULL, 1, &netTaskHandle, 0);  // printer polling on core 0
 }
 
 // ============================================================
@@ -233,15 +288,9 @@ void loop() {
     lastSyncHour = currentHour;
   }
 
-  if (enablePoll == true) {
-    if (printerName == "") {
-      handleHostName();
-      handlePrinterOffLine();
-    } else {
-      handlePrinterStatus();
-    }
-    enablePoll = false;
-  }
+  handlePrinterData();  // pick up the latest poll
+  handleThumbnail();  // draw a downloaded thumbnail
+  handleScreenSaver();  // Matrix rain when offline
 
   server.handleClient();
 }
@@ -341,24 +390,8 @@ void handle_ClockDisplay() {
   lastYear = myYear;
   lastMonth = myMonth;
 
-  handlePolling(mySecond);
-
   if (mySecond == (thePollTime + 5)) {
     drawWiFiQuality();
-  }
-}
-
-// ============================================================
-//  POLLING TRIGGER
-// ============================================================
-void handlePolling(int8_t theSeconds) {
-  if (forcePoll) {
-    enablePoll = true;
-    forcePoll = false;  // clear it, back to normal timer polling
-    return;
-  }
-  if ((theSeconds % thePollTime) == 0) {
-    enablePoll = true;
   }
 }
 
@@ -439,6 +472,7 @@ void handlePrinterOffLine() {
       tft.drawString(ipaddress, 120, versionY - 16, 2);
       drawVersionString();  // programmer info
       showSleep = true;
+      offlineSince = millis();
     }
   } else {
     tft.fillRect(0, belowClockY, 239, SCREEN_H - belowClockY, TFT_BLACK);
@@ -448,9 +482,60 @@ void handlePrinterOffLine() {
     tft.drawString(printerName, 120, printerNameY);
     tft.unloadFont();
     handleGaugeHeadings();
-    handlePrinterStatus();
     drawVersionString();
   }
+}
+
+// ============================================================
+//  SCREEN SAVER — Matrix rain below the clock
+// ============================================================
+void handleScreenSaver() {
+#if SCREENSAVER_MINUTES > 0
+  static uint32_t lastFrame = 0;
+
+  if (!saverOn) {
+    if (printerName == "" && showSleep
+        && millis() - offlineSince >= SCREENSAVER_MINUTES * 60000UL) {
+      tft.fillRect(0, belowClockY, 239, SCREEN_H - belowClockY, TFT_BLACK);
+      for (uint8_t c = 0; c < MATRIX_COLS; c++) resetDrop(drops[c]);  // random start, length, speed
+      saverOn = true;
+    }
+    return;
+  }
+
+  if (millis() - lastFrame < MATRIX_FRAME_MS) return;
+  lastFrame = millis();
+
+  for (uint8_t c = 0; c < MATRIX_COLS; c++) {
+    MatrixDrop &m = drops[c];
+    if (++m.tick < m.speed) continue;
+    m.tick = 0;
+    m.head++;
+    drawMatrixCell(c, m.head, TFT_WHITE);  // head
+    drawMatrixCell(c, m.head - 1, TFT_GREEN);  // trail
+    drawMatrixCell(c, m.head - m.len / 2, TFT_DARKGREEN);  // fade
+    drawMatrixCell(c, m.head - m.len, TFT_BLACK);  // erase tail
+    if (m.head - m.len >= MATRIX_ROWS) resetDrop(m);  // start over
+  }
+#endif
+}
+
+void resetDrop(MatrixDrop &m) {
+  m.head = -random(1, 40);
+  m.len = random(6, 14);
+  m.speed = random(1, 4);
+  m.tick = 0;
+}
+
+void drawMatrixCell(uint8_t col, int16_t row, uint16_t color) {
+  static const char glyphs[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$+-*/=<>#";
+  if (row < 0 || row >= MATRIX_ROWS) return;
+  int16_t x = col * 12;
+  int16_t y = matrixTopY + row * 16;
+  tft.fillRect(x, y, 11, 16, TFT_BLACK);
+  if (color == TFT_BLACK) return;
+  tft.setTextColor(color);
+  tft.drawChar(glyphs[random(sizeof(glyphs) - 1)], x + 1, y, 2);
 }
 
 // ============================================================
@@ -463,46 +548,107 @@ void beginHTTP(HTTPClient &http, const String &url) {
 }
 
 // ============================================================
+//  PRINTER POLLING TASK (core 0) - no TFT or LittleFS here
+// ============================================================
+void netTask(void *param) {
+  PrinterData d = {};
+  uint8_t failCount = 0;
+
+  for (;;) {
+    TickType_t cycleStart = xTaskGetTickCount();
+
+    xSemaphoreTake(dataMutex, portMAX_DELAY);
+    String ip = printerIP;
+    String port = printerPort;
+    bool reset = netReset;
+    netReset = false;
+    xSemaphoreGive(dataMutex);
+    String base = "http://" + ip + ":" + port;
+
+    if (reset) {
+      d.name = "";
+      failCount = 0;
+      hasChamber = false;
+      chamberSensorName = "";
+    }
+
+    if (d.name == "") {
+      d.name = fetchHostName(base);  // GET /printer/info
+      if (d.name != "") fetchPrinterLimits(base);  // max temps, chamber sensor
+    }
+
+    d.ok = false;
+    if (d.name != "") {
+      d.ok = fetchPrinterData(buildQueryURL(base), d);  // status query
+      if (d.ok) {
+        failCount = 0;  // reset on success
+      } else {
+        failCount++;
+        Serial.println("fetchPrinterData failed - count: " + String(failCount));
+        if (failCount >= 3) {  // 3 consecutive failures (~30 seconds) before giving up
+          failCount = 0;
+          d.name = "";
+        }
+      }
+    }
+
+    xSemaphoreTake(dataMutex, portMAX_DELAY);
+    if (!netReset) {
+      d.seq = sharedData.seq + 1;
+      sharedData = d;
+    }
+    xSemaphoreGive(dataMutex);
+
+    NtfyMsg msg;
+    while (xQueueReceive(ntfyQueue, &msg, 0) == pdTRUE) ntfyPost(msg);  // send queued ntfy messages
+
+    TickType_t nextPoll = cycleStart + pdMS_TO_TICKS(thePollTime * 1000UL);
+    for (;;) {
+      TickType_t ticks = xTaskGetTickCount();
+      if ((int32_t)(nextPoll - ticks) <= 0) break;
+      uint32_t bits = 0;
+      if (xTaskNotifyWait(0, UINT32_MAX, &bits, nextPoll - ticks) == pdFALSE) break;
+      if (bits & NET_THUMB) serviceThumbnail(ip, port);  // download the requested thumbnail
+      if (bits & NET_POLL_NOW) break;
+    }
+  }
+}
+
+// ============================================================
 //  FIND PRINTER HOSTNAME
 // ============================================================
-void handleHostName() {
+String fetchHostName(const String &base) {
+  String name = "";
   if (WiFi.status() == WL_CONNECTED) {
     setRGB(0, greenON, 0);
     HTTPClient http;
-    beginHTTP(http, printerURLInfo);
+    beginHTTP(http, base + printerINFO);
     int httpCode = http.GET();
     if (httpCode == 200) {
       String payload = http.getString();
       JsonDocument doc;
       DeserializationError error = deserializeJson(doc, payload);
       if (!error) {
-        printerName = doc["result"]["hostname"] | "";
-        Serial.println(printerName);
+        name = doc["result"]["hostname"] | "";
       }
     }
     http.end();
     setRGB(0, greenOFF, 0);
-    if (printerName != "") {
-      fetchPrinterLimits();
-      buildPrinterURLs();
-      lastBedTemp = 0;
-      lastNozzleTemp = 0;
-      lastProgress = 0;
-    }
   }
+  return name;
 }
 
 // ============================================================
 //  PHASE 1 — FETCH & PARSE
 // ============================================================
-bool fetchPrinterData() {
+bool fetchPrinterData(const String &url, PrinterData &d) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi lost");
     return false;
   }
   setRGB(0, greenON, 0);
   HTTPClient http;
-  beginHTTP(http, printerURLQ);
+  beginHTTP(http, url);
   int httpCode = http.GET();
 
   if (httpCode != 200) {
@@ -522,61 +668,120 @@ bool fetchPrinterData() {
     return false;
   }
 
-  nozzleTarget = doc["result"]["status"]["extruder"]["target"] | 0.0;
-  bedTarget = doc["result"]["status"]["heater_bed"]["target"] | 0.0;
-  printState = doc["result"]["status"]["print_stats"]["state"] | "unknown";
-  nozzleTemp = doc["result"]["status"]["extruder"]["temperature"] | 0.0;
-  bedTemp = doc["result"]["status"]["heater_bed"]["temperature"] | 0.0;
-  printDuration = doc["result"]["status"]["print_stats"]["print_duration"] | 0.0;
-  totalDuration = doc["result"]["status"]["print_stats"]["total_duration"] | 0.0;
-  if (totalDuration > 0) savedTotalDuration = totalDuration;
-  progress = doc["result"]["status"]["display_status"]["progress"] | 0.0;
+  d.nozzleTarget = doc["result"]["status"]["extruder"]["target"] | 0.0;
+  d.bedTarget = doc["result"]["status"]["heater_bed"]["target"] | 0.0;
+  d.state = doc["result"]["status"]["print_stats"]["state"] | "unknown";
+  d.nozzleTemp = doc["result"]["status"]["extruder"]["temperature"] | 0.0;
+  d.bedTemp = doc["result"]["status"]["heater_bed"]["temperature"] | 0.0;
+  d.printDuration = doc["result"]["status"]["print_stats"]["print_duration"] | 0.0;
+  d.totalDuration = doc["result"]["status"]["print_stats"]["total_duration"] | 0.0;
+  d.progress = doc["result"]["status"]["display_status"]["progress"] | 0.0;
+  d.file = doc["result"]["status"]["print_stats"]["filename"] | "";
 
   JsonArray toolheadPos = doc["result"]["status"]["toolhead"]["position"];
   if (!toolheadPos.isNull() && toolheadPos.size() >= 4) {
-    toolheadX = toolheadPos[0];
-    toolheadY = toolheadPos[1];
-    toolheadZ = toolheadPos[2];
-    toolheadE = toolheadPos[3];
-  }
-
-  if (thePrintFile == "" && printState != "standby"
-      && printState != "canceled" && printState != "cancelled"
-      && printState != "error") {
-    String rawPath = doc["result"]["status"]["print_stats"]["filename"] | "";
-    if (rawPath != "") {
-      thePrintFileRaw = rawPath;
-      thePrintFile = extractFileName(rawPath, false);
-    }
+    d.toolX = toolheadPos[0];
+    d.toolY = toolheadPos[1];
+    d.toolZ = toolheadPos[2];
+    d.toolE = toolheadPos[3];
   }
 
   if (hasChamber && chamberSensorName.length() > 0 && doc["result"]["status"].containsKey(chamberSensorName.c_str())) {
-    chamberTemp = doc["result"]["status"][chamberSensorName.c_str()]["temperature"] | 0.0;
-    chamberTarget = doc["result"]["status"][chamberSensorName.c_str()]["target"] | 0.0;
+    d.chamberTemp = doc["result"]["status"][chamberSensorName.c_str()]["temperature"] | 0.0;
+    d.chamberTarget = doc["result"]["status"][chamberSensorName.c_str()]["target"] | 0.0;
   }
 
   return true;
 }
 
 // ============================================================
+//  NEW PRINTER DATA FROM netTask
+// ============================================================
+void handlePrinterData() {
+  if (sharedData.seq == lastSeq) return;
+
+  PrinterData d;
+  xSemaphoreTake(dataMutex, portMAX_DELAY);
+  d = sharedData;
+  lastSeq = d.seq;
+  xSemaphoreGive(dataMutex);
+
+  if (d.name == "") {
+    if (printerName != "") {  // just went offline
+      printerName = "";
+      tft.fillRect(0, belowClockY, 239, SCREEN_H - belowClockY, TFT_BLACK);
+      drawVersionString();
+      showSleep = false;
+      showIdle = false;
+    }
+    handlePrinterOffLine();  // Asleep screen
+    return;
+  }
+
+  if (printerName == "") {  // just found
+    printerName = d.name;
+    Serial.println(printerName);
+    lastBedTemp = 0;
+    lastNozzleTemp = 0;
+    lastProgress = 0;
+    saverOn = false;
+    handlePrinterOffLine();  // draw the printer screen
+  }
+
+  if (d.ok) {
+    applyPrinterData(d);  // copy into the display globals
+    handlePrinterStatus();  // state, gauges, ETA
+  }
+}
+
+void applyPrinterData(const PrinterData &d) {
+  nozzleTarget = d.nozzleTarget;
+  bedTarget = d.bedTarget;
+  printState = d.state;
+  nozzleTemp = d.nozzleTemp;
+  bedTemp = d.bedTemp;
+  printDuration = d.printDuration;
+  totalDuration = d.totalDuration;
+  if (totalDuration > 0) savedTotalDuration = totalDuration;
+  progress = d.progress;
+  toolheadX = d.toolX;
+  toolheadY = d.toolY;
+  toolheadZ = d.toolZ;
+  toolheadE = d.toolE;
+  chamberTemp = d.chamberTemp;
+  chamberTarget = d.chamberTarget;
+
+  if (thePrintFile == "" && printState != "standby"
+      && printState != "canceled" && printState != "cancelled"
+      && printState != "error") {
+    if (d.file != "") {
+      thePrintFileRaw = d.file;
+      thePrintFile = extractFileName(d.file, false);
+    }
+  }
+}
+
+// ============================================================
 //  FETCH PRINTER TEMP LIMITS FROM KLIPPER CONFIG
 // ============================================================
-void fetchPrinterLimits() {
+void fetchPrinterLimits(const String &base) {
   HTTPClient http;
-  beginHTTP(http, "http://" + printerIP + ":" + printerPort + "/printer/objects/query?configfile");
+  beginHTTP(http, base + "/printer/objects/query?configfile=config");  // config section only, no settings copy
   int httpCode = http.GET();
   if (httpCode == 200) {
     String payload = http.getString();
+    JsonDocument filter;  // keep only the two max_temps
+    filter["result"]["status"]["configfile"]["config"]["extruder"]["max_temp"] = true;
+    filter["result"]["status"]["configfile"]["config"]["heater_bed"]["max_temp"] = true;
     JsonDocument doc;
-    DeserializationError error = deserializeJson(doc, payload);
+    DeserializationError error = deserializeJson(doc, payload, DeserializationOption::Filter(filter));
     if (!error) {
       String nozzle = doc["result"]["status"]["configfile"]["config"]["extruder"]["max_temp"] | "350";
       String bed = doc["result"]["status"]["configfile"]["config"]["heater_bed"]["max_temp"] | "120";
       maxNozzleTemp = nozzle.toInt();
       maxBedTemp = bed.toInt();
-      writeSettings();
     } else {
-      Serial.println("fetchPrinterLimits JSON error");
+      Serial.printf("fetchPrinterLimits JSON error: %s (%u bytes)\n", error.c_str(), payload.length());
     }
   } else {
     Serial.printf("fetchPrinterLimits failed: %d\n", httpCode);
@@ -584,7 +789,7 @@ void fetchPrinterLimits() {
   http.end();
 
   // ── Chamber detection ─────────────────────────────────────
-  beginHTTP(http, "http://" + printerIP + ":" + printerPort + "/printer/objects/list");
+  beginHTTP(http, base + "/printer/objects/list");
   httpCode = http.GET();
   if (httpCode == 200) {
     String payload = http.getString();
@@ -629,7 +834,7 @@ void handleTimeUsed() {
   }
   tft.drawString(buffer, 120, endTimeY);
   tft.setTextColor(TFT_GREEN, TFT_BLACK);
-  tft.drawString(thePrintFile, 120, filenameY);
+  drawFileName();  // centred, or cut to fit
   tft.unloadFont();
 
   justFinished = true;
@@ -813,14 +1018,12 @@ void updatePrinterDisplay(PrinterState state) {
         // Serial.println("thePrintFile on reconnect: " + thePrintFile);
         ntfyResetForNewPrint();
         tft.fillRect(0, statusZoneY, 239, statusZoneH, TFT_BLACK);
-        if (!fetchAndDrawThumbnail()) {
-          drawBmp(LittleFS, PRINTING_IMAGE, graphicX + 7, graphicY + 7);
-        }
+        requestThumbnail(thePrintFileRaw);  // netTask fetches it
         tft.loadFont(AA_FONT_SMALL, LittleFS);
         tft.setTextColor(TFT_WHITE, TFT_BLACK);
         tft.setTextDatum(BC_DATUM);
         tft.fillRect(0, filenameY - 14, 239, 16, TFT_BLACK);  // clear filename line
-        tft.drawString(thePrintFile, 120, filenameY);
+        drawFileName();  // centred, or cut to fit
         tft.unloadFont();
         handleGauge(progressGauge, 0);  // ← start at 0% immediately
         lastProgress = 0;               // ← force redraw on first real progress
@@ -866,23 +1069,6 @@ void updatePrinterDisplay(PrinterState state) {
 //  handlePrinterStatus
 // ============================================================
 void handlePrinterStatus() {
-  static uint8_t failCount = 0;
-
-  if (!fetchPrinterData()) {
-    failCount++;
-    Serial.println("fetchPrinterData failed - count: " + String(failCount));
-    if (failCount >= 3) {  // 3 consecutive failures (~30 seconds) before giving up
-      failCount = 0;
-      printerName = "";
-      tft.fillRect(0, belowClockY, 239, SCREEN_H - belowClockY, TFT_BLACK);
-      drawVersionString();
-      showSleep = false;
-      showIdle = false;
-    }
-    return;
-  }
-
-  failCount = 0;  // reset on success
   currentState = determinePrinterState();
   updatePrinterDisplay(currentState);
   handleETA();
@@ -920,12 +1106,14 @@ String ntfyServerDisplay() {
 // ============================================================
 //  WEB PAGE — dark theme
 // ============================================================
-String SendHTML() {
+String SendHTML(String savedPopup) {
   String page = String(HTML_TEMPLATE);
 
   // Header
   page.replace("%VERSION%", String(VERSION));
   page.replace("%WIFI_QUALITY%", String(getWifiQuality()));
+
+  page.replace("%SAVED_POPUP%", savedPopup);// empty unless just saved
 
   // WiFi reset modal
   page.replace("%WIFI_RESET_TITLE%", String(wcWifiResetTitle));
@@ -965,9 +1153,14 @@ String SendHTML() {
 }
 
 void handlePrinterUpdate() {
+  xSemaphoreTake(dataMutex, portMAX_DELAY);
   if (server.hasArg("printerIP")) printerIP = server.arg("printerIP");
   if (server.hasArg("printerPort")) printerPort = server.arg("printerPort");
+  xSemaphoreGive(dataMutex);
   show24HR = server.hasArg("show24HR");
+  invertColours = server.hasArg("invertColours");
+  tzOverride = server.hasArg("tzOverride");
+  if (server.hasArg("tzOverrideOffset")) tzOverrideOffset = server.arg("tzOverrideOffset").toInt();
   ntfyEnabled = server.hasArg("ntfyEnabled");
   if (server.hasArg("ntfyServer")) {
     ntfyServer = server.arg("ntfyServer");
@@ -1003,17 +1196,65 @@ void handlePrinterUpdate() {
   writeSettings();  // ← everything is set before we save
 
   // Reset display
+  tft.invertDisplay(invertColours);
   tft.fillRect(0, clockBottomY, 239, SCREEN_H - clockBottomY, TFT_BLACK);
   drawVersionString();
   printerName = "";
   showSleep = false;
   showIdle = false;
+  saverOn = false;
   justFinished = false;
   currentState = STATE_IDLE;
   lastState = STATE_IDLE;
-  forcePoll = true;
-  buildPrinterURLs();
-  server.send(200, "text/html", SendHTML());
+
+  xSemaphoreTake(dataMutex, portMAX_DELAY);
+  netReset = true;
+  lastSeq = sharedData.seq;  // skip any old result
+  xSemaphoreGive(dataMutex);
+  xTaskNotify(netTaskHandle, NET_POLL_NOW, eSetBits);
+  server.sendHeader("Location", "/?saved=1");  // back to the page, popup says it's saved
+  server.send(303);
+}
+
+// Saved popup: a click anywhere closes it. The ?saved=1 comes off the address, so a refresh doesn't show it again.
+String buildSavedPopup() {
+  return "<div class='mbg open' onclick='this.classList.remove(\"open\")'>"
+         "<div class='modal okm'><h3>" + String(wcSaved) + "</h3>"
+         "<div class='mbtns'><button type='button' class='mok okb'>" + String(wcOkBtn) + "</button></div>"
+         "</div></div>"
+         "<script>history.replaceState(null,'','/');</script>";
+}
+
+// Every UTC offset in use, in minutes, for the override dropdown
+static const int16_t TZ_CHOICES[] = {
+  -720, -660, -600, -570, -540, -480, -420, -360, -300, -240, -210, -180, -150, -120, -60,
+  0, 60, 120, 180, 210, 240, 270, 300, 330, 345, 360, 390, 420, 480, 525, 540, 570,
+  600, 630, 660, 720, 765, 780, 825, 840
+};
+static const uint8_t TZ_CHOICE_COUNT = sizeof(TZ_CHOICES) / sizeof(TZ_CHOICES[0]);
+
+// "UTC−8" or "UTC+5:30"; full always shows the minutes ("UTC−8:00")
+String utcLabel(int32_t secs, bool full) {
+  int32_t mins = abs(secs) / 60;
+  String s = String("UTC") + (secs < 0 ? "&minus;" : "+") + String(mins / 60);
+  if (full || mins % 60) s += (mins % 60 < 10 ? ":0" : ":") + String(mins % 60);
+  return s;
+}
+
+// Override toggle + offset list, the service's offset below
+// Box off: the list starts at the received offset, so it's one step up or down to fix
+String tzOverrideField() {
+  int32_t shown = tzOverride ? tzOverrideOffset : tzOffset;
+  String html = "<div><div class='tzbox'><label class='toggle'><input type='checkbox' name='tzOverride'"
+                + String(tzOverride ? " checked" : "") + "><span class='slider'></span></label>"
+                "<select name='tzOverrideOffset'>";
+  for (uint8_t i = 0; i < TZ_CHOICE_COUNT; i++) {
+    int32_t secs = TZ_CHOICES[i] * 60;
+    html += "<option value='" + String(secs) + "'" + (secs == shown ? " selected" : "") + ">"
+            + utcLabel(secs, true) + "</option>";
+  }
+  html += "</select></div><div class='tzrecv'>" + String(wcTzReceived) + ": " + utcLabel(tzOffset, false) + "</div></div>";
+  return html;
 }
 
 String getPrinterSetup() {
@@ -1024,6 +1265,11 @@ String getPrinterSetup() {
   printerForm.replace("%IP%", printerIP);
   printerForm.replace("%PORT%", printerPort);
   printerForm.replace("%boxState%", show24HR ? "checked" : "unchecked");
+  printerForm.replace("%LBL_INVERT%", String(wcInvert));
+  printerForm.replace("%LBL_INVERT_HINT%", String(wcInvertHint));
+  printerForm.replace("%invertState%", invertColours ? "checked" : "");
+  printerForm.replace("%LBL_TZ_OVERRIDE%", String(wcTzOverride));
+  printerForm.replace("%TZ_OVERRIDE%", tzOverrideField());
   return printerForm;
 }
 
@@ -1036,6 +1282,7 @@ void writeSettings() {
   f.println("printerIP=" + printerIP);
   f.println("printerPort=" + printerPort);
   f.println("show24HR=" + String(show24HR));
+  f.println("invertColours=" + String(invertColours));
   f.println("ntfyPort=" + ntfyPort);  // write the port number if there is one
   f.println("ntfyEnabled=" + String(ntfyEnabled));
   f.println("ntfyServer=" + ntfyServer);
@@ -1043,6 +1290,8 @@ void writeSettings() {
   f.println("ntfyToken=" + ntfyToken);
   f.println("ntfyStallMin=" + String(ntfyStallMin));
   f.println("tzOffset=" + String(tzOffset));
+  f.println("tzOverride=" + String(tzOverride));
+  f.println("tzOverrideOffset=" + String(tzOverrideOffset));
   f.close();
 }
 
@@ -1064,6 +1313,7 @@ void readSettings() {
       printerPort.trim();
     }
     if (line.indexOf("show24HR=") >= 0) show24HR = line.substring(9).toInt();
+    if (line.startsWith("invertColours=")) invertColours = line.substring(14).toInt();
     if (line.indexOf("ntfyPort=") >= 0) {
       ntfyPort = line.substring(9);
       ntfyPort.trim();
@@ -1083,20 +1333,20 @@ void readSettings() {
     }
     if (line.indexOf("ntfyStallMin=") >= 0) ntfyStallMin = line.substring(13).toInt();
     if (line.indexOf("tzOffset=") >= 0) tzOffset = line.substring(9).toInt();
+    if (line.startsWith("tzOverride=")) tzOverride = line.substring(11).toInt();
+    if (line.startsWith("tzOverrideOffset=")) tzOverrideOffset = line.substring(17).toInt();
   }
   fr.close();
 }
 
-void buildPrinterURLs() {
-  printerURLInfo = "http://" + printerIP + ":" + printerPort + printerINFO;
-  printerURLQ = "http://" + printerIP + ":" + printerPort + printQuery;
+String buildQueryURL(const String &base) {
+  String url = base + printQuery;
   if (hasChamber) {
     String encodedName = chamberSensorName;
     encodedName.replace(" ", "+");
-    printerURLQ += "&" + encodedName;
+    url += "&" + encodedName;
   }
-  // Serial.println("buildPrinterURLs hasChamber: " + String(hasChamber));
-  // Serial.println("printerURLQ: " + printerURLQ);
+  return url;
 }
 
 // ============================================================
@@ -1185,8 +1435,27 @@ String extractFileName(const String &path, bool withExt) {
     result = path.substring(start);
   }
 
-  if (result.length() > 28) result = result.substring(0, 28) + "~";
   return result;
+}
+
+// Filename on its line: centred if it fits, otherwise left justified and cut with "..." so it never wraps.
+// Uses the loaded font and the colour already set.
+void drawFileName() {
+  const int16_t maxW = SCREEN_W - 4;
+  String s = thePrintFile;
+  uint8_t datum = tft.getTextDatum();
+  if (tft.textWidth(s) <= maxW) {
+    tft.setTextDatum(BC_DATUM);
+    tft.drawString(s, SCREEN_W / 2, filenameY);
+  } else {
+    while (s.length() && tft.textWidth(s + "...") > maxW) {
+      while (s.length() && (s[s.length() - 1] & 0xC0) == 0x80) s.remove(s.length() - 1);  // whole UTF-8 characters only
+      if (s.length()) s.remove(s.length() - 1);
+    }
+    tft.setTextDatum(BL_DATUM);
+    tft.drawString(s + "...", 2, filenameY);
+  }
+  tft.setTextDatum(datum);
 }
 
 // ============================================================
@@ -1222,8 +1491,67 @@ int pngDraw(PNGDRAW *pDraw) {
   return 1;  // return 1 to continue decoding
 }
 
-bool fetchAndDrawThumbnail() {
-  String thumbFile = thePrintFileRaw;
+// ============================================================
+//  THUMBNAIL
+// ============================================================
+void requestThumbnail(const String &rawPath) {
+  xSemaphoreTake(dataMutex, portMAX_DELAY);
+  thumbRequest = rawPath;
+  xSemaphoreGive(dataMutex);
+  xTaskNotify(netTaskHandle, NET_THUMB, eSetBits);
+}
+
+void handleThumbnail() {
+  if (!thumbDone) return;
+
+  xSemaphoreTake(dataMutex, portMAX_DELAY);
+  uint8_t *buf = thumbBuffer;
+  int len = thumbBufferSize;
+  thumbBuffer = nullptr;
+  thumbDone = false;
+  xSemaphoreGive(dataMutex);
+
+  if (printerName != "" && currentState == STATE_PRINTING) {
+    if (!buf || !drawThumbnail(buf, len)) {  // PNG decode to screen
+      drawBmp(LittleFS, PRINTING_IMAGE, graphicX + 7, graphicY + 7);
+    }
+  }
+  free(buf);
+}
+
+bool drawThumbnail(uint8_t *buf, int len) {
+  int rc = png.openRAM(buf, len, pngDraw);
+  if (rc == PNG_SUCCESS) {
+    tft.startWrite();
+    rc = png.decode(NULL, 0);
+    tft.endWrite();
+    png.close();
+  } else {
+    Serial.println("PNG open failed: " + String(rc));
+  }
+  return (rc == PNG_SUCCESS);
+}
+
+void serviceThumbnail(const String &ip, const String &port) {
+  xSemaphoreTake(dataMutex, portMAX_DELAY);
+  String rawPath = thumbRequest;
+  thumbRequest = "";
+  xSemaphoreGive(dataMutex);
+  if (rawPath == "") return;
+
+  int len = 0;
+  uint8_t *buf = fetchThumbnail(ip, port, rawPath, len);  // HTTP download into RAM
+
+  xSemaphoreTake(dataMutex, portMAX_DELAY);
+  free(thumbBuffer);
+  thumbBuffer = buf;
+  thumbBufferSize = len;
+  thumbDone = true;
+  xSemaphoreGive(dataMutex);
+}
+
+uint8_t *fetchThumbnail(const String &ip, const String &port, const String &rawPath, int &len) {
+  String thumbFile = rawPath;
   int slashIdx = thumbFile.lastIndexOf('/');
   if (slashIdx >= 0) thumbFile = thumbFile.substring(slashIdx + 1);
   int dotIdx = thumbFile.lastIndexOf('.');
@@ -1239,65 +1567,59 @@ bool fetchAndDrawThumbnail() {
   encodedFile.replace("+", "%2B");
 
   // Standard Moonraker path (works for the vast majority of printers)
-  String thumbURL = "http://" + printerIP + ":" + printerPort + "/server/files/gcodes/.thumbs/" + encodedFile + "-110x110.png";
+  String thumbURL = "http://" + ip + ":" + port + "/server/files/gcodes/.thumbs/" + encodedFile + "-110x110.png";
 
-  httpThumb.begin(thumbURL);
-  int httpCode = httpThumb.GET();
+  HTTPClient http;
+  beginHTTP(http, thumbURL);
+  int httpCode = http.GET();
 
   // Fallback: Creality K1/K1 Max serve thumbnails via Nginx on port 80,
   // under a mistyped "/downloads/humbnail/" path instead of Moonraker's API.
   if (httpCode != 200) {
-    httpThumb.end();
+    http.end();
     delay(150);  // let the socket close cleanly before firing the second request
-    thumbURL = "http://" + printerIP + "/downloads/humbnail/" + encodedFile + ".png";
+    thumbURL = "http://" + ip + "/downloads/humbnail/" + encodedFile + ".png";
     Serial.println("Standard thumbnail path failed, trying Creality fallback: " + thumbURL);
-    httpThumb.begin(thumbURL);
-    httpCode = httpThumb.GET();
+    beginHTTP(http, thumbURL);
+    httpCode = http.GET();
   }
 
   if (httpCode != 200) {
     Serial.println("Thumb fetch failed: " + String(httpCode));
-    httpThumb.end();
-    return false;
+    http.end();
+    return nullptr;
   }
 
-  thumbBufferSize = httpThumb.getSize();
-  if (thumbBufferSize <= 0) {
+  len = http.getSize();
+  if (len <= 0) {
     Serial.println("Thumb: invalid content length, aborting");
-    httpThumb.end();
-    return false;
+    http.end();
+    return nullptr;
   }
 
-  thumbBuffer = (uint8_t *)malloc(thumbBufferSize);
-  if (!thumbBuffer) {
+  uint8_t *buf = (uint8_t *)malloc(len);
+  if (!buf) {
     Serial.println("malloc failed!");
-    httpThumb.end();
-    return false;
+    http.end();
+    return nullptr;
   }
 
-  WiFiClient *stream = httpThumb.getStreamPtr();
+  WiFiClient *stream = http.getStreamPtr();
   int bytesRead = 0;
-  while (httpThumb.connected() && bytesRead < thumbBufferSize) {
-    if (stream->available()) {
-      thumbBuffer[bytesRead++] = stream->read();
+  uint32_t lastData = millis();
+  while (http.connected() && bytesRead < len && millis() - lastData < HTTP_RESPONSE_TIMEOUT) {
+    int avail = stream->available();
+    int n = (avail > 0) ? stream->read(buf + bytesRead, min(avail, len - bytesRead)) : 0;
+    if (n > 0) {
+      bytesRead += n;
+      lastData = millis();
+    } else {
+      delay(1);
     }
   }
-  httpThumb.end();
+  http.end();
 
   Serial.println("Bytes read: " + String(bytesRead));
-
-  int rc = png.openRAM(thumbBuffer, bytesRead, pngDraw);
-  if (rc == PNG_SUCCESS) {
-    tft.startWrite();
-    rc = png.decode(NULL, 0);
-    tft.endWrite();
-    png.close();
-  } else {
-    Serial.println("PNG open failed: " + String(rc));
-  }
-
-  free(thumbBuffer);
-  thumbBuffer = nullptr;
-
-  return (rc == PNG_SUCCESS);
+  len = bytesRead;
+  return buf;
 }
