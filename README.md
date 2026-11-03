@@ -1,4 +1,4 @@
-# KlippyMon v3.8
+# KlippyMon v4.0
 ### A Klipper 3D Printer Monitor for the ESP32 CYD (Cheap Yellow Display)
 
 **Wabbit Wanch Design © 2026**
@@ -26,6 +26,9 @@ KlippyMon turns a budget ESP32 CYD into a dedicated 3D printer monitor for Klipp
 - NTP clock with 12/24 hour mode
 - Added corrections for Creality Klipper differences
 - Changed idle timeout detection to check both progress and movement
+- TimeZone override for services that haven't updated your TZ yet
+- Screen saver that comes on when the printer is offline
+- CYD invertColor option in WebUI to fix black/white CYD displays
 
 ---
 
@@ -111,7 +114,8 @@ http://klippymon.local
 
 KlippyMon has a built-in web interface accessible from any browser on your local network at `http://klippymon.local` or the IP address shown on the display.
 
-<img width="320" height="644" alt="Configure" src="https://github.com/user-attachments/assets/65cf71e1-84a1-4475-a073-114dab7fda2d" />
+<img width="640" alt="KlippyMon_WEBUI" src="https://github.com/user-attachments/assets/19da949a-b85f-485f-8b9f-872f295b5f76" />
+
 
 > **Tip:** If `klippymon.local` doesn't work on your network, use the IP address shown on the KlippyMon display when it is waiting for your printer to come online. It will be shown at the bottom of the screen, for example: `KlippyMon 192.168.1.45`
 
@@ -120,6 +124,8 @@ KlippyMon has a built-in web interface accessible from any browser on your local
 | Printer IP | The IP address of your Klipper printer |
 | Printer Port | Moonraker port — usually 7125, QIDI uses 10088 |
 | 24 Hour Clock | Toggle between 12 and 24 hour time display |
+| InvertColor | Fixes white/black inversion |
+| TZ Override | Allows TZ to be set via UTC until TZ servers are updated |
 
 If you want to use nfty for notifications, read the section in this document about the options for setup.
 
