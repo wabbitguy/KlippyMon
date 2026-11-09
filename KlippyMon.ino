@@ -9,7 +9,7 @@
 
 //#define FORMAT_LittleFS  // Wipe LittleFS and all files! Disable after use.
 
-#define VERSION "v4.0"
+#define VERSION "v4.1"
 #define hostNameCYD "KlippyMon"
 #define CONFIG "/config.txt"
 
@@ -233,6 +233,7 @@ void setup() {
   wifiManager.setHostname("KlippyMon");
   wifiManager.setAPCallback(configModeCallback);
   wifiManager.setBreakAfterConfig(true);
+  wifiManager.setConfigPortalTimeout(PORTAL_TIMEOUT_MINUTES * 60);  // router may still be booting after a power cut
   if (!wifiManager.autoConnect(hostNameCYD)) {
     delay(3000);
     ESP.restart();
@@ -1274,7 +1275,7 @@ String getPrinterSetup() {
 }
 
 void writeSettings() {
-  File f = LittleFS.open(CONFIG, "w");
+  fs::File f = LittleFS.open(CONFIG, "w");
   if (!f) {
     Serial.println("Settings write failed!");
     return;
@@ -1300,7 +1301,7 @@ void readSettings() {
     writeSettings();
     return;
   }
-  File fr = LittleFS.open(CONFIG, "r");
+  fs::File fr = LittleFS.open(CONFIG, "r");
   String line;
   while (fr.available()) {
     line = fr.readStringUntil('\n');
@@ -1355,7 +1356,7 @@ String buildQueryURL(const String &base) {
 void drawBmp(fs::FS &fs, const char *filename, int16_t x, int16_t y) {
   if ((x >= tft.width()) || (y >= tft.height())) return;
 
-  File bmpFS = fs.open(filename, "r");
+  fs::File bmpFS = fs.open(filename, "r");
   if (!bmpFS) {
     Serial.print("BMP not found: ");
     Serial.println(filename);
