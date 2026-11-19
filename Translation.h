@@ -62,6 +62,8 @@ const char strIdle[]        = "Idle";
 const char strPrep[]        = "PREP";
 
 
+const char strPrintFailed[] = "Print Failed";  // cancelled or error
+
 // ── Success screen ────────────────────────────────────────────────────────
 const char strTotal[]       = "Total";
 const char strHrs[]         = "hrs";
@@ -119,6 +121,8 @@ const char strBed[]         = "Lit";
 // ── Progress gauge centre (max 5 chars) ──────────────────────────────────
 const char strIdle[]        = "Repos";
 const char strPrep[]        = "PREP";
+
+const char strPrintFailed[] = "Échec d'impression";  // cancelled or error
 
 // ── Success screen ────────────────────────────────────────────────────────
 const char strTotal[]       = "Total";
@@ -178,6 +182,8 @@ const char strBed[]         = "Bett";
 const char strIdle[]        = "Frei";
 const char strPrep[]        = "VOR";        // Vorbereitung
 
+const char strPrintFailed[] = "Druck fehlgeschlagen";  // cancelled or error
+
 // ── Success screen ────────────────────────────────────────────────────────
 const char strTotal[]       = "Gesamt";
 const char strHrs[]         = "Std";        // Stunden
@@ -235,6 +241,8 @@ const char strBed[]         = "Cama";
 // ── Progress gauge centre (max 5 chars) ──────────────────────────────────
 const char strIdle[]        = "Libre";
 const char strPrep[]        = "PREP";
+
+const char strPrintFailed[] = "Impresión fallida";  // cancelled or error
 
 // ── Success screen ────────────────────────────────────────────────────────
 const char strTotal[]       = "Total";
@@ -294,6 +302,8 @@ const char strBed[]         = "Bed";
 const char strIdle[]        = "Vrij";
 const char strPrep[]        = "PREP";
 
+const char strPrintFailed[] = "Afdruk mislukt";  // cancelled or error
+
 // ── Success screen ────────────────────────────────────────────────────────
 const char strTotal[]       = "Totaal";
 const char strHrs[]         = "uur";
@@ -351,6 +361,8 @@ const char strBed[]         = "Cama";
 // ── Progress gauge centre (max 5 chars) ──────────────────────────────────
 const char strIdle[]        = "Livre";
 const char strPrep[]        = "PREP";
+
+const char strPrintFailed[] = "Impressão falhou";  // cancelled or error
 
 // ── Success screen ────────────────────────────────────────────────────────
 const char strTotal[]       = "Total";
@@ -410,6 +422,8 @@ const char strBed[]         = "Tabla";
 const char strIdle[]        = "Bosta";
 const char strPrep[]        = "HAZR";       // Hazırlık
 
+const char strPrintFailed[] = "Baski Basarisiz";  // cancelled or error
+
 // ── Success screen ────────────────────────────────────────────────────────
 const char strTotal[]       = "Toplam";
 const char strHrs[]         = "saat";
@@ -467,6 +481,8 @@ const char strBed[]         = "Piatto";
 // ── Progress gauge centre (max 5 chars) ──────────────────────────────────
 const char strIdle[]        = "Fermo";
 const char strPrep[]        = "PREP";       // Preparazione
+
+const char strPrintFailed[] = "Stampa fallita";  // cancelled or error
 
 // ── Success screen ────────────────────────────────────────────────────────
 const char strTotal[]       = "Totale";

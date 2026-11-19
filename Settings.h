@@ -27,6 +27,7 @@
 #include <FS.h>
 #include "LittleFS.h"
 #include <WebServer.h>
+#include <Preferences.h>
 #include <PNGdec.h>
 
 // Timezone offset
@@ -52,6 +53,7 @@ String printerINFO = "/printer/info";
 String thePrintFile = "";  // filename of the currently printing file
 
 bool show24HR = false;// show 24hr clock
+Preferences prefs;  // settings in NVS
 bool invertColours = false;  // true if black shows as white (some CYD panels need it)
 
 // ── Screen saver ───────────────────────────────────────────
@@ -66,6 +68,7 @@ bool invertColours = false;  // true if black shows as white (some CYD panels ne
 #define HEATING_IMAGE "/Heating.bmp"    // 24-bit BMP, 110 x 110
 #define PRINTING_IMAGE "/Printing.bmp"  // 24-bit BMP, 110 x 110
 #define SUCCESS_IMAGE "/Success.bmp"    // 24-bit BMP, 110 x 110
+#define FAILURE_IMAGE "/Failure.bmp"    // 24-bit BMP, 96 x 96
 
 // ---------------- FONTS (in LittleFS /data folder) ----------------
 #define AA_FONT_SMALL "NotoSansBold15"  // 15 point sans serif bold

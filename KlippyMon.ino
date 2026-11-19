@@ -9,9 +9,9 @@
 
 //#define FORMAT_LittleFS  // Wipe LittleFS and all files! Disable after use.
 
-#define VERSION "v4.1"
+#define VERSION "v4.2"
 #define hostNameCYD "KlippyMon"
-#define CONFIG "/config.txt"
+#define CONFIG "/config.txt"  // pre-4.2 settings, read once then moved to NVS
 
 // ---------------- GAUGE IDs ----------------
 #define nozzleGauge 1
@@ -69,7 +69,8 @@ typedef enum {
   STATE_IDLE,      // standby - printer on but doing nothing
   STATE_PREP,      // printing flag set but printDuration == 0 (heating/levelling/homing/filament)
   STATE_PRINTING,  // printDuration > 0 - actual print in progress
-  STATE_COMPLETE   // just transitioned from PRINTING to IDLE
+  STATE_COMPLETE,  // just transitioned from PRINTING to IDLE
+  STATE_FAILED     // cancelled or error
 } PrinterState;
 
 PrinterState currentState = STATE_IDLE;
@@ -159,9 +160,11 @@ void handleScreenSaver();
 void resetDrop(MatrixDrop &m);
 void drawMatrixCell(uint8_t col, int16_t row, uint16_t color);
 void handleTimeUsed();
+void handlePrintFailed();
 void handleETA();
 void estimateTimeRemaining(float elapsedSeconds, float percentComplete, char *result);
 bool fetchPrinterData(const String &url, PrinterData &d);
+bool lastJobCancelled(const String &base);  // Moonraker history says the last job didn't finish
 PrinterState determinePrinterState();
 void updatePrinterDisplay(PrinterState state);
 void handlePrinterStatus();
@@ -172,6 +175,7 @@ void handlePrinterUpdate();
 String getPrinterSetup();
 void writeSettings();
 void readSettings();
+void readSettingsFile();
 String extractFileName(const String &path, bool withExt);
 void drawFileName();
 void handleWifiReset();
@@ -580,9 +584,12 @@ void netTask(void *param) {
 
     d.ok = false;
     if (d.name != "") {
+      String prevState = d.state;
       d.ok = fetchPrinterData(buildQueryURL(base), d);  // status query
       if (d.ok) {
         failCount = 0;  // reset on success
+        if (d.state == "standby" && (prevState == "printing" || prevState == "paused")
+            && lastJobCancelled(base)) d.state = "cancelled";  // missed the cancelled state
       } else {
         failCount++;
         Serial.println("fetchPrinterData failed - count: " + String(failCount));
@@ -613,6 +620,27 @@ void netTask(void *param) {
       if (bits & NET_POLL_NOW) break;
     }
   }
+}
+
+// ============================================================
+//  LAST JOB STATUS FROM MOONRAKER HISTORY
+// ============================================================
+bool lastJobCancelled(const String &base) {
+  HTTPClient http;
+  beginHTTP(http, base + "/server/history/list?limit=1&order=desc");
+  if (http.GET() != 200) {  // no history component: treat as completed
+    http.end();
+    return false;
+  }
+  JsonDocument filter;
+  filter["result"]["jobs"][0]["status"] = true;
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, http.getString(), DeserializationOption::Filter(filter));
+  http.end();
+  if (error) return false;
+  String status = doc["result"]["jobs"][0]["status"] | "";
+  Serial.println("Last job: " + status);
+  return status == "cancelled" || status == "error" || status == "klippy_shutdown" || status == "interrupted";
 }
 
 // ============================================================
@@ -843,6 +871,25 @@ void handleTimeUsed() {
 }
 
 // ============================================================
+//  PRINT FAILED (cancelled or errored out)
+// ============================================================
+void handlePrintFailed() {
+  tft.fillRect(0, statusZoneY, 239, statusZoneH, TFT_BLACK);
+  drawBmp(LittleFS, FAILURE_IMAGE, graphicX + 7, graphicY + 7);  // 96 px, centred like Idle
+
+  tft.loadFont(AA_FONT_SMALL, LittleFS);
+  tft.setTextDatum(BC_DATUM);
+  tft.setTextColor(TFT_RED, TFT_BLACK);
+  tft.drawString(strPrintFailed, 120, endTimeY);
+  tft.setTextColor(TFT_GREEN, TFT_BLACK);
+  drawFileName();  // centred, or cut to fit
+  tft.unloadFont();
+
+  justFinished = true;
+  showIdle = true;
+}
+
+// ============================================================
 //  ESTIMATE TIME REMAINING
 // ============================================================
 void estimateTimeRemaining(float elapsedSeconds, float percentComplete, char *result) {
@@ -935,11 +982,11 @@ void handleETA() {
 PrinterState determinePrinterState() {
   lastState = currentState;
 
-  // Cancelled or error: always go straight to idle, never STATE_COMPLETE
   // Note: Creality K1/K1 Max reports "cancelled" (British spelling),
   // while standard Klipper/Moonraker reports "canceled".
   if (printState == "canceled" || printState == "cancelled" || printState == "error") {
-    return STATE_IDLE;
+    if (lastState == STATE_PRINTING || lastState == STATE_PREP || lastState == STATE_FAILED) return STATE_FAILED;
+    return STATE_IDLE;  // was already stopped
   }
 
   if (printState == "standby") {
@@ -980,13 +1027,11 @@ void updatePrinterDisplay(PrinterState state) {
       tft.setTextColor(TFT_WHITE, TFT_BLACK);
       tft.drawString(strIdle, 120, dataY, 2);
 
-      // Coming from PRINTING/PREP without a STATE_COMPLETE means it was
-      // cancelled or errored out — clear the tracked filename so the next
-      // print picks up its own name, and force the idle graphic to redraw.
-      if (lastState == STATE_PRINTING || lastState == STATE_PREP) {
+      if (lastState == STATE_PRINTING || lastState == STATE_PREP || lastState == STATE_FAILED) {  // clear old filename, redraw idle
         thePrintFile = "";
         thePrintFileRaw = "";
         showIdle = false;
+        if (!justFinished) tft.fillRect(0, filenameY - 14, 239, 16, TFT_BLACK);  // clear filename line
       }
 
       if (!showIdle && !justFinished) {
@@ -1058,6 +1103,19 @@ void updatePrinterDisplay(PrinterState state) {
         ntfyPrintComplete(thePrintFileRaw, savedTotalDuration);  // send notification
         tft.fillRect(0, filenameY - 14, 239, 16, TFT_BLACK);
         handleTimeUsed();
+      }
+      thePrintFile = "";
+      showIdle = true;
+      activeETA = false;
+      break;
+
+    case STATE_FAILED:
+      lastProgress = 0;
+      handleGauge(progressGauge, 0);
+
+      if (thePrintFile != "") {
+        tft.fillRect(0, filenameY - 14, 239, 16, TFT_BLACK);
+        handlePrintFailed();
       }
       thePrintFile = "";
       showIdle = true;
@@ -1274,33 +1332,51 @@ String getPrinterSetup() {
   return printerForm;
 }
 
-void writeSettings() {
-  fs::File f = LittleFS.open(CONFIG, "w");
-  if (!f) {
-    Serial.println("Settings write failed!");
-    return;
-  }
-  f.println("printerIP=" + printerIP);
-  f.println("printerPort=" + printerPort);
-  f.println("show24HR=" + String(show24HR));
-  f.println("invertColours=" + String(invertColours));
-  f.println("ntfyPort=" + ntfyPort);  // write the port number if there is one
-  f.println("ntfyEnabled=" + String(ntfyEnabled));
-  f.println("ntfyServer=" + ntfyServer);
-  f.println("ntfyTopic=" + ntfyTopic);
-  f.println("ntfyToken=" + ntfyToken);
-  f.println("ntfyStallMin=" + String(ntfyStallMin));
-  f.println("tzOffset=" + String(tzOffset));
-  f.println("tzOverride=" + String(tzOverride));
-  f.println("tzOverrideOffset=" + String(tzOverrideOffset));
-  f.close();
+void writeSettings() {  // NVS survives sketch and LittleFS uploads
+  prefs.begin("klippymon", false);
+  prefs.putString("printerIP", printerIP);
+  prefs.putString("printerPort", printerPort);
+  prefs.putBool("show24HR", show24HR);
+  prefs.putBool("invertColours", invertColours);
+  prefs.putString("ntfyPort", ntfyPort);
+  prefs.putBool("ntfyEnabled", ntfyEnabled);
+  prefs.putString("ntfyServer", ntfyServer);
+  prefs.putString("ntfyTopic", ntfyTopic);
+  prefs.putString("ntfyToken", ntfyToken);
+  prefs.putUChar("ntfyStallMin", ntfyStallMin);
+  prefs.putInt("tzOffset", tzOffset);
+  prefs.putBool("tzOverride", tzOverride);
+  prefs.putInt("tzOvrOffset", tzOverrideOffset);  // NVS keys max 15 chars
+  prefs.end();
 }
 
 void readSettings() {
-  if (!LittleFS.exists(CONFIG)) {
-    writeSettings();
-    return;
+  prefs.begin("klippymon", true);
+  bool saved = prefs.isKey("printerIP");
+  if (saved) {
+    printerIP = prefs.getString("printerIP", printerIP);
+    printerPort = prefs.getString("printerPort", printerPort);
+    show24HR = prefs.getBool("show24HR", show24HR);
+    invertColours = prefs.getBool("invertColours", invertColours);
+    ntfyPort = prefs.getString("ntfyPort", ntfyPort);
+    ntfyEnabled = prefs.getBool("ntfyEnabled", ntfyEnabled);
+    ntfyServer = prefs.getString("ntfyServer", ntfyServer);
+    ntfyTopic = prefs.getString("ntfyTopic", ntfyTopic);
+    ntfyToken = prefs.getString("ntfyToken", ntfyToken);
+    ntfyStallMin = prefs.getUChar("ntfyStallMin", ntfyStallMin);
+    tzOffset = prefs.getInt("tzOffset", tzOffset);
+    tzOverride = prefs.getBool("tzOverride", tzOverride);
+    tzOverrideOffset = prefs.getInt("tzOvrOffset", tzOverrideOffset);
   }
+  prefs.end();
+  if (!saved) {  // first boot: bring over the old LittleFS settings, if any
+    readSettingsFile();
+    writeSettings();
+  }
+}
+
+void readSettingsFile() {  // pre-4.2 settings in LittleFS
+  if (!LittleFS.exists(CONFIG)) return;
   fs::File fr = LittleFS.open(CONFIG, "r");
   String line;
   while (fr.available()) {
